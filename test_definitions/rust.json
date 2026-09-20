@@ -1,0 +1,676 @@
+{
+  "language": "rust",
+  "cases": [
+    {
+      "case_id": "quality-01",
+      "category": "quality",
+      "code": "fn load_names(path: &Path) -> Vec<String> {\n    let content = std::fs::read_to_string(path).unwrap();\n    content.lines().map(|l| l.trim().to_string()).filter(|l| !l.is_empty()).collect()\n}\n",
+      "findings": [
+        {
+          "name": "panic on error",
+          "indicators": [
+            "unwrap",
+            "panic",
+            "result",
+            "error propagation",
+            "?"
+          ]
+        },
+        {
+          "name": "missing error context",
+          "indicators": [
+            "context",
+            "anyhow",
+            "thiserror",
+            "error message"
+          ]
+        },
+        {
+          "name": "unnecessary allocation",
+          "indicators": [
+            "to_string",
+            "collect",
+            "allocate",
+            "borrow",
+            "&&str"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "quality-02",
+      "category": "quality",
+      "code": "fn calculate_total(items: &[Item]) -> f64 {\n    let mut total = 0.0;\n    for item in items {\n        if item.active == true {\n            total = total + item.price * item.quantity as f64;\n        }\n    }\n    (total * 100.0).round() / 100.0\n}\n",
+      "findings": [
+        {
+          "name": "money precision",
+          "indicators": [
+            "decimal",
+            "float",
+            "currency",
+            "integer cents",
+            "f64"
+          ]
+        },
+        {
+          "name": "redundant comparison",
+          "indicators": [
+            "== true",
+            "if item.active",
+            "boolean comparison",
+            "clippy"
+          ]
+        },
+        {
+          "name": "unchecked arithmetic",
+          "indicators": [
+            "as f64",
+            "cast",
+            "precision",
+            "overflow",
+            "checked"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "quality-03",
+      "category": "quality",
+      "code": "impl UserService {\n    async fn create(&self, data: &Data) -> User {\n        let user = self.db.insert(data).await.unwrap();\n        self.mailer.send(&data.email, \"welcome\").await.unwrap();\n        self.analytics.track(\"created\", user.id);\n        user\n    }\n}\n",
+      "findings": [
+        {
+          "name": "partial failure consistency",
+          "indicators": [
+            "transaction",
+            "rollback",
+            "partial failure",
+            "consistency"
+          ]
+        },
+        {
+          "name": "panic on error",
+          "indicators": [
+            "unwrap",
+            "panic",
+            "error propagation",
+            "result"
+          ]
+        },
+        {
+          "name": "mixed responsibilities",
+          "indicators": [
+            "single responsibility",
+            "orchestration",
+            "multiple responsibilities"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "quality-04",
+      "category": "quality",
+      "code": "async fn fetch_all(urls: &[String], client: &Client) -> Vec<Response> {\n    let mut results = Vec::new();\n    for url in urls {\n        let response = client.get(url).await.unwrap();\n        results.push(response);\n    }\n    results\n}\n",
+      "findings": [
+        {
+          "name": "sequential async IO",
+          "indicators": [
+            "join_all",
+            "futures",
+            "concurrent",
+            "sequential",
+            "buffered"
+          ]
+        },
+        {
+          "name": "error propagation",
+          "indicators": [
+            "unwrap",
+            "panic",
+            "result",
+            "collect"
+          ]
+        },
+        {
+          "name": "bounded concurrency",
+          "indicators": [
+            "buffer_unordered",
+            "semaphore",
+            "bounded",
+            "rate limit"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "quality-05",
+      "category": "quality",
+      "code": "fn find_duplicates(values: &[i32]) -> Vec<i32> {\n    let mut duplicates = Vec::new();\n    for i in 0..values.len() {\n        for j in (i + 1)..values.len() {\n            if values[i] == values[j] && !duplicates.contains(&values[i]) {\n                duplicates.push(values[i]);\n            }\n        }\n    }\n    duplicates\n}\n",
+      "findings": [
+        {
+          "name": "quadratic complexity",
+          "indicators": [
+            "o(n^2)",
+            "quadratic",
+            "nested loop"
+          ]
+        },
+        {
+          "name": "hash-based algorithm",
+          "indicators": [
+            "hashset",
+            "hashmap",
+            "set"
+          ]
+        },
+        {
+          "name": "ambiguous ordering",
+          "indicators": [
+            "order",
+            "semantics",
+            "contract"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "quality-06",
+      "category": "quality",
+      "code": "fn parse_age(value: &str) -> Option<u8> {\n    match value.parse::<u8>() {\n        Ok(age) => Some(age),\n        _ => None,\n    }\n}\n",
+      "findings": [
+        {
+          "name": "discarded error",
+          "indicators": [
+            "err",
+            "ignored",
+            "error information",
+            "_ =>"
+          ]
+        },
+        {
+          "name": "ambiguous failure",
+          "indicators": [
+            "none",
+            "ambiguous",
+            "sentinel",
+            "option"
+          ]
+        },
+        {
+          "name": "range validation",
+          "indicators": [
+            "range",
+            "negative",
+            "validation",
+            "bounds"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "quality-07",
+      "category": "quality",
+      "code": "static CACHE: Lazy<Mutex<HashMap<u64, Report>>> = Lazy::new(Default::default);\n\nimpl Report {\n    fn render(&self, user_id: u64, options: Options) -> Report {\n        let mut cache = CACHE.lock().unwrap();\n        if !cache.contains_key(&user_id) {\n            cache.insert(user_id, build_report(options));\n        }\n        cache.get(&user_id).unwrap().clone()\n    }\n}\n",
+      "findings": [
+        {
+          "name": "shared global state",
+          "indicators": [
+            "static",
+            "global",
+            "shared cache",
+            "mutex"
+          ]
+        },
+        {
+          "name": "incorrect cache key",
+          "indicators": [
+            "cache key",
+            "options",
+            "stale",
+            "collision"
+          ]
+        },
+        {
+          "name": "lock poisoning",
+          "indicators": [
+            "unwrap",
+            "poison",
+            "lock",
+            "panic"
+          ]
+        },
+        {
+          "name": "lock held across work",
+          "indicators": [
+            "build_report",
+            "inside lock",
+            "hold",
+            "contention",
+            "deadlock"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "quality-08",
+      "category": "quality",
+      "code": "fn save_config(config: &Config, path: &Path) {\n    std::fs::write(path, serde_json::to_string(config).unwrap()).unwrap();\n    std::fs::rename(path, path.with_extension(\"active\")).unwrap();\n}\n",
+      "findings": [
+        {
+          "name": "non-atomic update",
+          "indicators": [
+            "atomic",
+            "temporary file",
+            "replace",
+            "partial write",
+            "rename"
+          ]
+        },
+        {
+          "name": "serialization failure",
+          "indicators": [
+            "serialization",
+            "json",
+            "unwrap",
+            "error"
+          ]
+        },
+        {
+          "name": "durability",
+          "indicators": [
+            "fsync",
+            "sync",
+            "durability",
+            "flush"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "quality-09",
+      "category": "quality",
+      "code": "fn normalize(records: &[Record]) -> Vec<Record> {\n    let mut output = Vec::new();\n    for record in records {\n        let mut copied = record.clone();\n        copied.name = copied.name.trim().to_lowercase();\n        copied.score = copied.score.parse().unwrap();\n        output.push(copied);\n    }\n    output\n}\n",
+      "findings": [
+        {
+          "name": "missing input validation",
+          "indicators": [
+            "validation",
+            "unwrap",
+            "parse",
+            "malformed",
+            "panic"
+          ]
+        },
+        {
+          "name": "unnecessary clone",
+          "indicators": [
+            "clone",
+            "allocation",
+            "copy",
+            "move"
+          ]
+        },
+        {
+          "name": "iterator pipeline",
+          "indicators": [
+            "iter",
+            "map",
+            "collect",
+            "functional"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "quality-10",
+      "category": "quality",
+      "code": "async fn retry(operation: impl Fn() -> Result<Value, Error>) -> Option<Value> {\n    for attempt in 0..5 {\n        match operation() {\n            Ok(v) => return Some(v),\n            Err(_) => std::thread::sleep(Duration::from_secs(2u64.pow(attempt))),\n        }\n    }\n    None\n}\n",
+      "findings": [
+        {
+          "name": "indiscriminate retry",
+          "indicators": [
+            "retryable",
+            "all errors",
+            "non-retryable",
+            "error kind"
+          ]
+        },
+        {
+          "name": "blocking sleep",
+          "indicators": [
+            "thread::sleep",
+            "blocking",
+            "tokio::time::sleep",
+            "async"
+          ]
+        },
+        {
+          "name": "failure swallowed",
+          "indicators": [
+            "last error",
+            "swallow",
+            "return none",
+            "err"
+          ]
+        },
+        {
+          "name": "missing jitter",
+          "indicators": [
+            "jitter",
+            "thundering herd",
+            "backoff"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "security-01",
+      "category": "security",
+      "code": "fn find_user(conn: &Connection, email: &str) -> Option<Row> {\n    let query = format!(\"SELECT id, email FROM users WHERE email = '{}'\", email);\n    conn.query_row(&query, []).ok()\n}\n",
+      "findings": [
+        {
+          "name": "CWE-89 SQL injection",
+          "indicators": [
+            "cwe-89",
+            "sql injection",
+            "format!"
+          ]
+        },
+        {
+          "name": "parameterized query",
+          "indicators": [
+            "parameterized",
+            "placeholder",
+            "bind",
+            "params",
+            "?"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "security-02",
+      "category": "security",
+      "code": "fn download_report(base_dir: &Path, filename: &str) -> Vec<u8> {\n    let path = base_dir.join(filename);\n    std::fs::read(path).unwrap()\n}\n",
+      "findings": [
+        {
+          "name": "CWE-22 path traversal",
+          "indicators": [
+            "cwe-22",
+            "path traversal",
+            "directory traversal",
+            "../"
+          ]
+        },
+        {
+          "name": "resolved containment",
+          "indicators": [
+            "canonicalize",
+            "containment",
+            "starts_with",
+            "allowlist"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "security-03",
+      "category": "security",
+      "code": "fn convert_image(filename: &str, size: &str) -> Output {\n    let command = format!(\"convert {} -resize {} output.png\", filename, size);\n    Command::new(\"sh\").arg(\"-c\").arg(&command).output().unwrap()\n}\n",
+      "findings": [
+        {
+          "name": "CWE-78 command injection",
+          "indicators": [
+            "cwe-78",
+            "command injection",
+            "shell"
+          ]
+        },
+        {
+          "name": "argument vector",
+          "indicators": [
+            "arg(",
+            "argument list",
+            "no shell",
+            "sh -c"
+          ]
+        },
+        {
+          "name": "input validation",
+          "indicators": [
+            "allowlist",
+            "validate",
+            "size format",
+            "filename"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "security-04",
+      "category": "security",
+      "code": "async fn preview(url: &str) -> String {\n    reqwest::get(url).await.unwrap().text().await.unwrap()\n}\n",
+      "findings": [
+        {
+          "name": "CWE-918 SSRF",
+          "indicators": [
+            "cwe-918",
+            "ssrf",
+            "server-side request forgery"
+          ]
+        },
+        {
+          "name": "address validation",
+          "indicators": [
+            "private ip",
+            "loopback",
+            "metadata",
+            "allowlist"
+          ]
+        },
+        {
+          "name": "redirect revalidation",
+          "indicators": [
+            "redirect",
+            "revalidate",
+            "redirect policy",
+            "each hop"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "security-05",
+      "category": "security",
+      "code": "fn load_preferences(cookie: &str) -> Preferences {\n    let raw = base64_decode(cookie).unwrap();\n    unsafe { std::mem::transmute::<&[u8], &Preferences>(&raw) }.clone()\n}\n",
+      "findings": [
+        {
+          "name": "CWE-502 deserialization",
+          "indicators": [
+            "cwe-502",
+            "deserialization",
+            "transmute",
+            "untrusted"
+          ]
+        },
+        {
+          "name": "undefined behavior",
+          "indicators": [
+            "unsafe",
+            "transmute",
+            "layout",
+            "undefined behavior"
+          ]
+        },
+        {
+          "name": "safe format",
+          "indicators": [
+            "serde",
+            "json",
+            "schema",
+            "validated format"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "security-06",
+      "category": "security",
+      "code": "fn store_password(password: &str) -> String {\n    let salt = \"company-static-salt\";\n    let mut hasher = Sha256::new();\n    hasher.update(format!(\"{}{}\", salt, password));\n    hex::encode(hasher.finalize())\n}\n",
+      "findings": [
+        {
+          "name": "CWE-916 password hashing",
+          "indicators": [
+            "cwe-916",
+            "password hash",
+            "fast hash",
+            "sha256"
+          ]
+        },
+        {
+          "name": "password KDF",
+          "indicators": [
+            "argon2",
+            "scrypt",
+            "bcrypt",
+            "pbkdf2"
+          ]
+        },
+        {
+          "name": "unique salt",
+          "indicators": [
+            "random salt",
+            "unique salt",
+            "static salt",
+            "per-user"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "security-07",
+      "category": "security",
+      "code": "fn current_user(token: &str) -> String {\n    let data = decode::<Claims>(token, &DecodingKey::from_secret(b\"\"),\n        &Validation::new(Algorithm::HS256)).unwrap();\n    data.claims.sub\n}\n",
+      "findings": [
+        {
+          "name": "JWT verification misuse",
+          "indicators": [
+            "cwe-347",
+            "signature",
+            "verify",
+            "decodingkey",
+            "empty secret"
+          ]
+        },
+        {
+          "name": "claim validation",
+          "indicators": [
+            "issuer",
+            "audience",
+            "expiration",
+            "exp"
+          ]
+        },
+        {
+          "name": "algorithm restriction",
+          "indicators": [
+            "algorithm allowlist",
+            "algorithms",
+            "algorithm confusion"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "security-08",
+      "category": "security",
+      "code": "async fn invoice(Path(invoice_id): Path<u64>, user: User) -> Json<Invoice> {\n    Json(database::get_invoice(invoice_id).await)\n}\n",
+      "findings": [
+        {
+          "name": "CWE-639 IDOR",
+          "indicators": [
+            "cwe-639",
+            "idor",
+            "insecure direct object",
+            "bola"
+          ]
+        },
+        {
+          "name": "object authorization",
+          "indicators": [
+            "ownership",
+            "authorization",
+            "tenant",
+            "access control"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "security-09",
+      "category": "security",
+      "code": "fn unpack(upload: &Path, destination: &Path) {\n    let mut archive = zip::ZipArchive::new(File::open(upload).unwrap()).unwrap();\n    archive.extract(destination).unwrap();\n}\n",
+      "findings": [
+        {
+          "name": "Zip Slip traversal",
+          "indicators": [
+            "zip slip",
+            "path traversal",
+            "cwe-22",
+            "enclosed_name"
+          ]
+        },
+        {
+          "name": "resource exhaustion",
+          "indicators": [
+            "zip bomb",
+            "resource exhaustion",
+            "size limit",
+            "compression ratio"
+          ]
+        },
+        {
+          "name": "member validation",
+          "indicators": [
+            "enclosed_name",
+            "mangled_name",
+            "member",
+            "symlink"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "security-10",
+      "category": "security",
+      "code": "fn login(request: &Request) -> Result<Session, Error> {\n    info!(\"login email={} password={} token={}\", request.email, request.password, request.token);\n    authenticate(&request.email, &request.password)\n}\n",
+      "findings": [
+        {
+          "name": "CWE-532 sensitive logging",
+          "indicators": [
+            "cwe-532",
+            "sensitive log",
+            "logging sensitive"
+          ]
+        },
+        {
+          "name": "credential exposure",
+          "indicators": [
+            "password",
+            "token",
+            "credential",
+            "secret"
+          ]
+        },
+        {
+          "name": "redaction",
+          "indicators": [
+            "redact",
+            "mask",
+            "omit",
+            "structured logging"
+          ]
+        }
+      ]
+    }
+  ]
+}

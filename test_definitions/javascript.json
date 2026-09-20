@@ -1,0 +1,658 @@
+{
+  "language": "javascript",
+  "cases": [
+    {
+      "case_id": "quality-01",
+      "category": "quality",
+      "code": "function loadNames(path) {\n    const data = fs.readFileSync(path, \"utf8\");\n    return data.split(\"\\n\").map(l => l.trim()).filter(Boolean);\n}\n",
+      "findings": [
+        {
+          "name": "blocking synchronous IO",
+          "indicators": [
+            "readfilesync",
+            "blocking",
+            "event loop",
+            "async"
+          ]
+        },
+        {
+          "name": "missing error handling",
+          "indicators": [
+            "enoent",
+            "try",
+            "catch",
+            "error handling",
+            "throws"
+          ]
+        },
+        {
+          "name": "memory materialization",
+          "indicators": [
+            "stream",
+            "readline",
+            "memory",
+            "whole file"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "quality-02",
+      "category": "quality",
+      "code": "function calculateTotal(items) {\n    let total = 0;\n    for (const item of items) {\n        if (item.active == true) {\n            total = total + parseFloat(item.price) * parseInt(item.quantity);\n        }\n    }\n    return Math.round(total * 100) / 100;\n}\n",
+      "findings": [
+        {
+          "name": "money precision",
+          "indicators": [
+            "decimal",
+            "float",
+            "currency",
+            "bigdecimal",
+            "integer cents"
+          ]
+        },
+        {
+          "name": "loose equality",
+          "indicators": [
+            "===",
+            "== true",
+            "strict equality",
+            "truthy"
+          ]
+        },
+        {
+          "name": "missing validation",
+          "indicators": [
+            "nan",
+            "validation",
+            "isnan",
+            "missing key",
+            "undefined"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "quality-03",
+      "category": "quality",
+      "code": "class UserService {\n    async create(data) {\n        const user = await this.db.insert(data);\n        await this.mailer.send(data.email, \"welcome\");\n        this.analytics.track(\"created\", user.id);\n        return user;\n    }\n}\n",
+      "findings": [
+        {
+          "name": "partial failure consistency",
+          "indicators": [
+            "transaction",
+            "rollback",
+            "partial failure",
+            "consistency"
+          ]
+        },
+        {
+          "name": "dependency definition",
+          "indicators": [
+            "constructor",
+            "dependency injection",
+            "undefined",
+            "this.db"
+          ]
+        },
+        {
+          "name": "mixed responsibilities",
+          "indicators": [
+            "single responsibility",
+            "orchestration",
+            "multiple responsibilities"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "quality-04",
+      "category": "quality",
+      "code": "async function fetchAll(urls, client) {\n    const results = [];\n    for (const url of urls) {\n        const response = await client.get(url);\n        results.push(await response.json());\n    }\n    return results;\n}\n",
+      "findings": [
+        {
+          "name": "sequential async IO",
+          "indicators": [
+            "promise.all",
+            "concurrent",
+            "sequential",
+            "parallel"
+          ]
+        },
+        {
+          "name": "response lifecycle",
+          "indicators": [
+            "abort",
+            "cancel",
+            "timeout",
+            "response context"
+          ]
+        },
+        {
+          "name": "bounded concurrency",
+          "indicators": [
+            "semaphore",
+            "p-limit",
+            "rate limit",
+            "bounded"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "quality-05",
+      "category": "quality",
+      "code": "function findDuplicates(values) {\n    const duplicates = [];\n    for (let i = 0; i < values.length; i++) {\n        for (let j = i + 1; j < values.length; j++) {\n            if (values[i] === values[j] && !duplicates.includes(values[i])) {\n                duplicates.push(values[i]);\n            }\n        }\n    }\n    return duplicates;\n}\n",
+      "findings": [
+        {
+          "name": "quadratic complexity",
+          "indicators": [
+            "o(n^2)",
+            "quadratic",
+            "nested loop"
+          ]
+        },
+        {
+          "name": "set-based algorithm",
+          "indicators": [
+            "set",
+            "hash",
+            "seen"
+          ]
+        },
+        {
+          "name": "ambiguous ordering",
+          "indicators": [
+            "order",
+            "semantics",
+            "contract",
+            "duplicate"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "quality-06",
+      "category": "quality",
+      "code": "function parseAge(value) {\n    try {\n        return parseInt(value);\n    } catch (e) {\n        return null;\n    }\n}\n",
+      "findings": [
+        {
+          "name": "overly broad catch",
+          "indicators": [
+            "catch-all",
+            "too broad",
+            "specific error",
+            "swallow"
+          ]
+        },
+        {
+          "name": "ambiguous failure",
+          "indicators": [
+            "nan",
+            "null",
+            "ambiguous",
+            "error information",
+            "sentinel"
+          ]
+        },
+        {
+          "name": "range validation",
+          "indicators": [
+            "range",
+            "negative",
+            "validation",
+            "bounds"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "quality-07",
+      "category": "quality",
+      "code": "class Report {\n    static cache = {};\n    render(userId, options = {}) {\n        options.user_id = userId;\n        if (!(userId in Report.cache)) {\n            Report.cache[userId] = buildReport(options);\n        }\n        return Report.cache[userId];\n    }\n}\n",
+      "findings": [
+        {
+          "name": "argument mutation",
+          "indicators": [
+            "mutat",
+            "options.user_id",
+            "side effect",
+            "caller"
+          ]
+        },
+        {
+          "name": "shared class state",
+          "indicators": [
+            "static",
+            "shared cache",
+            "global state",
+            "class attribute"
+          ]
+        },
+        {
+          "name": "incorrect cache key",
+          "indicators": [
+            "cache key",
+            "options",
+            "stale",
+            "collision"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "quality-08",
+      "category": "quality",
+      "code": "function saveConfig(config, path) {\n    fs.writeFileSync(path, JSON.stringify(config));\n    fs.renameSync(path, path + \".active\");\n}\n",
+      "findings": [
+        {
+          "name": "non-atomic update",
+          "indicators": [
+            "atomic",
+            "temporary file",
+            "replace",
+            "partial write"
+          ]
+        },
+        {
+          "name": "serialization failure",
+          "indicators": [
+            "serialization",
+            "json",
+            "circular",
+            "throws"
+          ]
+        },
+        {
+          "name": "durability",
+          "indicators": [
+            "fsync",
+            "durability",
+            "flush",
+            "sync"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "quality-09",
+      "category": "quality",
+      "code": "function normalize(records) {\n    const output = [];\n    for (const record of records) {\n        const copied = { ...record };\n        copied.name = copied.name.trim().toLowerCase();\n        copied.score = parseInt(copied.score);\n        output.push(copied);\n    }\n    return output;\n}\n",
+      "findings": [
+        {
+          "name": "missing input validation",
+          "indicators": [
+            "validation",
+            "missing",
+            "nan",
+            "malformed",
+            "undefined"
+          ]
+        },
+        {
+          "name": "shallow copy",
+          "indicators": [
+            "shallow",
+            "spread",
+            "nested",
+            "deep copy",
+            "structuredclone"
+          ]
+        },
+        {
+          "name": "batch processing",
+          "indicators": [
+            "map",
+            "vectorized",
+            "functional",
+            "bulk"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "quality-10",
+      "category": "quality",
+      "code": "function retry(operation) {\n    for (let attempt = 0; attempt < 5; attempt++) {\n        try {\n            return operation();\n        } catch (e) {\n            setTimeout(() => {}, 2 ** attempt * 1000);\n        }\n    }\n    return null;\n}\n",
+      "findings": [
+        {
+          "name": "indiscriminate retry",
+          "indicators": [
+            "retryable",
+            "all errors",
+            "non-retryable",
+            "error filter"
+          ]
+        },
+        {
+          "name": "non-blocking sleep",
+          "indicators": [
+            "settimeout",
+            "does not wait",
+            "not awaited",
+            "sleep"
+          ]
+        },
+        {
+          "name": "failure swallowed",
+          "indicators": [
+            "raise",
+            "throw",
+            "swallow",
+            "return null",
+            "last error"
+          ]
+        },
+        {
+          "name": "missing jitter",
+          "indicators": [
+            "jitter",
+            "thundering herd",
+            "backoff"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "security-01",
+      "category": "security",
+      "code": "function findUser(db, email) {\n    const query = `SELECT id, email FROM users WHERE email = '${email}'`;\n    return db.query(query);\n}\n",
+      "findings": [
+        {
+          "name": "CWE-89 SQL injection",
+          "indicators": [
+            "cwe-89",
+            "sql injection"
+          ]
+        },
+        {
+          "name": "parameterized query",
+          "indicators": [
+            "parameterized",
+            "placeholder",
+            "bind",
+            "prepared statement",
+            "$1"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "security-02",
+      "category": "security",
+      "code": "function downloadReport(baseDir, filename) {\n    const full = path.join(baseDir, filename);\n    return fs.readFileSync(full);\n}\n",
+      "findings": [
+        {
+          "name": "CWE-22 path traversal",
+          "indicators": [
+            "cwe-22",
+            "path traversal",
+            "directory traversal",
+            "../"
+          ]
+        },
+        {
+          "name": "resolved containment",
+          "indicators": [
+            "resolve",
+            "containment",
+            "startswith",
+            "allowlist",
+            "root"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "security-03",
+      "category": "security",
+      "code": "function convertImage(filename, size) {\n    const command = `convert ${filename} -resize ${size} output.png`;\n    return execSync(command);\n}\n",
+      "findings": [
+        {
+          "name": "CWE-78 command injection",
+          "indicators": [
+            "cwe-78",
+            "command injection",
+            "os command"
+          ]
+        },
+        {
+          "name": "argument vector",
+          "indicators": [
+            "execfile",
+            "spawn",
+            "argument array",
+            "argv",
+            "shell"
+          ]
+        },
+        {
+          "name": "input validation",
+          "indicators": [
+            "allowlist",
+            "validate",
+            "size format",
+            "filename"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "security-04",
+      "category": "security",
+      "code": "async function preview(url) {\n    const response = await fetch(url, { redirect: \"follow\" });\n    return response.text();\n}\n",
+      "findings": [
+        {
+          "name": "CWE-918 SSRF",
+          "indicators": [
+            "cwe-918",
+            "ssrf",
+            "server-side request forgery"
+          ]
+        },
+        {
+          "name": "address validation",
+          "indicators": [
+            "private ip",
+            "loopback",
+            "metadata",
+            "allowlist"
+          ]
+        },
+        {
+          "name": "redirect revalidation",
+          "indicators": [
+            "redirect",
+            "revalidate",
+            "each hop",
+            "manual"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "security-05",
+      "category": "security",
+      "code": "function loadPreferences(cookie) {\n    const raw = Buffer.from(cookie, \"base64\").toString();\n    return eval(\"(\" + raw + \")\");\n}\n",
+      "findings": [
+        {
+          "name": "CWE-502 deserialization",
+          "indicators": [
+            "cwe-502",
+            "insecure deserialization",
+            "eval"
+          ]
+        },
+        {
+          "name": "safe format",
+          "indicators": [
+            "json.parse",
+            "schema",
+            "safe format",
+            "signed"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "security-06",
+      "category": "security",
+      "code": "function storePassword(password) {\n    const salt = \"company-static-salt\";\n    return crypto.createHash(\"sha256\").update(salt + password).digest(\"hex\");\n}\n",
+      "findings": [
+        {
+          "name": "CWE-916 password hashing",
+          "indicators": [
+            "cwe-916",
+            "password hash",
+            "fast hash",
+            "sha256"
+          ]
+        },
+        {
+          "name": "password KDF",
+          "indicators": [
+            "argon2",
+            "scrypt",
+            "bcrypt",
+            "pbkdf2"
+          ]
+        },
+        {
+          "name": "unique salt",
+          "indicators": [
+            "random salt",
+            "unique salt",
+            "static salt",
+            "per-user"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "security-07",
+      "category": "security",
+      "code": "function currentUser(token) {\n    const payload = jwt.decode(token);\n    return payload.sub;\n}\n",
+      "findings": [
+        {
+          "name": "CWE-347 signature validation",
+          "indicators": [
+            "cwe-347",
+            "signature",
+            "jwt.verify",
+            "decode without verify"
+          ]
+        },
+        {
+          "name": "claim validation",
+          "indicators": [
+            "issuer",
+            "audience",
+            "expiration",
+            "exp"
+          ]
+        },
+        {
+          "name": "algorithm restriction",
+          "indicators": [
+            "algorithm allowlist",
+            "algorithms",
+            "algorithm confusion",
+            "none"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "security-08",
+      "category": "security",
+      "code": "app.get(\"/invoices/:id\", async (req, res) => {\n    const invoice = await db.getInvoice(req.params.id);\n    res.json(invoice);\n});\n",
+      "findings": [
+        {
+          "name": "CWE-639 IDOR",
+          "indicators": [
+            "cwe-639",
+            "idor",
+            "insecure direct object",
+            "bola"
+          ]
+        },
+        {
+          "name": "object authorization",
+          "indicators": [
+            "ownership",
+            "authorization",
+            "tenant",
+            "access control"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "security-09",
+      "category": "security",
+      "code": "function unpack(upload, destination) {\n    const zip = new AdmZip(upload);\n    zip.extractAllTo(destination, true);\n}\n",
+      "findings": [
+        {
+          "name": "Zip Slip traversal",
+          "indicators": [
+            "zip slip",
+            "path traversal",
+            "cwe-22",
+            "../"
+          ]
+        },
+        {
+          "name": "resource exhaustion",
+          "indicators": [
+            "zip bomb",
+            "resource exhaustion",
+            "size limit",
+            "compression ratio"
+          ]
+        },
+        {
+          "name": "member validation",
+          "indicators": [
+            "entry",
+            "resolve",
+            "containment",
+            "symlink"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "security-10",
+      "category": "security",
+      "code": "function login(req) {\n    logger.info(`login email=${req.email} password=${req.password} token=${req.token}`);\n    return authenticate(req.email, req.password);\n}\n",
+      "findings": [
+        {
+          "name": "CWE-532 sensitive logging",
+          "indicators": [
+            "cwe-532",
+            "sensitive log",
+            "logging sensitive"
+          ]
+        },
+        {
+          "name": "credential exposure",
+          "indicators": [
+            "password",
+            "token",
+            "credential",
+            "secret"
+          ]
+        },
+        {
+          "name": "redaction",
+          "indicators": [
+            "redact",
+            "mask",
+            "omit",
+            "structured logging"
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+
+# Benchmark artifacts — machine-generated, may contain local paths/hostnames
+results/
+logs/
+archives/
+workspaces/
+
+# OpenCode agent workspace (generated fixtures + node_modules)
+opencode-agent-suite/
+
+# Serena / tool state
+.serena/
+
+# Local secrets & env
+.env
+.env.*
+*.pem
+*.key
+
+# OS / editor
+.DS_Store
+Untitled.txt

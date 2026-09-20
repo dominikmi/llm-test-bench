@@ -1,0 +1,655 @@
+{
+  "language": "cpp",
+  "cases": [
+    {
+      "case_id": "quality-01",
+      "category": "quality",
+      "code": "std::vector<std::string> loadNames(const std::string& path) {\n    std::ifstream file(path);\n    std::vector<std::string> names;\n    std::string line;\n    while (std::getline(file, line)) {\n        if (!line.empty()) names.push_back(line);\n    }\n    return names;\n}\n",
+      "findings": [
+        {
+          "name": "unchecked stream state",
+          "indicators": [
+            "is_open",
+            "fail",
+            "stream state",
+            "error",
+            "file open"
+          ]
+        },
+        {
+          "name": "missing whitespace handling",
+          "indicators": [
+            "trim",
+            "whitespace",
+            "empty"
+          ]
+        },
+        {
+          "name": "avoidable copy",
+          "indicators": [
+            "push_back",
+            "move",
+            "reserve",
+            "copy"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "quality-02",
+      "category": "quality",
+      "code": "double calculateTotal(const std::vector<Item> items) {\n    double total = 0;\n    for (auto item : items) {\n        if (item.active == true) {\n            total = total + item.price * item.quantity;\n        }\n    }\n    return std::round(total * 100) / 100;\n}\n",
+      "findings": [
+        {
+          "name": "money precision",
+          "indicators": [
+            "decimal",
+            "floating point",
+            "double",
+            "currency",
+            "integer cents"
+          ]
+        },
+        {
+          "name": "pass by value",
+          "indicators": [
+            "const reference",
+            "copy",
+            "by value",
+            "const&"
+          ]
+        },
+        {
+          "name": "redundant comparison",
+          "indicators": [
+            "== true",
+            "if (item.active)",
+            "boolean comparison"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "quality-03",
+      "category": "quality",
+      "code": "class UserService {\npublic:\n    User create(const Data& data) {\n        User user = db->insert(data);\n        mailer->send(data.email, \"welcome\");\n        analytics->track(\"created\", user.id);\n        return user;\n    }\n};\n",
+      "findings": [
+        {
+          "name": "partial failure consistency",
+          "indicators": [
+            "transaction",
+            "rollback",
+            "partial failure",
+            "consistency"
+          ]
+        },
+        {
+          "name": "dependency lifetime",
+          "indicators": [
+            "nullptr",
+            "ownership",
+            "dependency injection",
+            "smart pointer"
+          ]
+        },
+        {
+          "name": "mixed responsibilities",
+          "indicators": [
+            "single responsibility",
+            "orchestration",
+            "multiple responsibilities"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "quality-04",
+      "category": "quality",
+      "code": "std::vector<Response> fetchAll(const std::vector<std::string>& urls, Client& client) {\n    std::vector<Response> results;\n    for (const auto& url : urls) {\n        results.push_back(client.get(url));\n    }\n    return results;\n}\n",
+      "findings": [
+        {
+          "name": "sequential IO",
+          "indicators": [
+            "concurrent",
+            "async",
+            "parallel",
+            "sequential",
+            "thread"
+          ]
+        },
+        {
+          "name": "response lifecycle",
+          "indicators": [
+            "timeout",
+            "error",
+            "response check",
+            "exception"
+          ]
+        },
+        {
+          "name": "bounded concurrency",
+          "indicators": [
+            "thread pool",
+            "bounded",
+            "rate limit",
+            "limit"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "quality-05",
+      "category": "quality",
+      "code": "std::vector<int> findDuplicates(const std::vector<int>& values) {\n    std::vector<int> duplicates;\n    for (size_t i = 0; i < values.size(); i++) {\n        for (size_t j = i + 1; j < values.size(); j++) {\n            if (values[i] == values[j] &&\n                std::find(duplicates.begin(), duplicates.end(), values[i]) == duplicates.end()) {\n                duplicates.push_back(values[i]);\n            }\n        }\n    }\n    return duplicates;\n}\n",
+      "findings": [
+        {
+          "name": "quadratic complexity",
+          "indicators": [
+            "o(n^2)",
+            "quadratic",
+            "nested loop"
+          ]
+        },
+        {
+          "name": "hash-based algorithm",
+          "indicators": [
+            "unordered_set",
+            "set",
+            "hash"
+          ]
+        },
+        {
+          "name": "ambiguous ordering",
+          "indicators": [
+            "order",
+            "semantics",
+            "contract"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "quality-06",
+      "category": "quality",
+      "code": "int parseAge(const std::string& value) {\n    try {\n        return std::stoi(value);\n    } catch (...) {\n        return -1;\n    }\n}\n",
+      "findings": [
+        {
+          "name": "catch-all swallow",
+          "indicators": [
+            "catch (...)",
+            "catch-all",
+            "too broad",
+            "specific exception"
+          ]
+        },
+        {
+          "name": "ambiguous failure",
+          "indicators": [
+            "-1",
+            "sentinel",
+            "ambiguous",
+            "optional",
+            "error information"
+          ]
+        },
+        {
+          "name": "range validation",
+          "indicators": [
+            "range",
+            "negative",
+            "validation",
+            "bounds"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "quality-07",
+      "category": "quality",
+      "code": "class Report {\n    static std::map<int, Report> cache;\npublic:\n    Report& render(int userId, Options options = {}) {\n        options.user_id = userId;\n        if (cache.find(userId) == cache.end()) {\n            cache[userId] = buildReport(options);\n        }\n        return cache[userId];\n    }\n};\n",
+      "findings": [
+        {
+          "name": "shared static state",
+          "indicators": [
+            "static",
+            "shared cache",
+            "global state",
+            "thread safety"
+          ]
+        },
+        {
+          "name": "incorrect cache key",
+          "indicators": [
+            "cache key",
+            "options",
+            "stale",
+            "collision"
+          ]
+        },
+        {
+          "name": "reference to mutable state",
+          "indicators": [
+            "reference",
+            "thread",
+            "invalidat",
+            "data race"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "quality-08",
+      "category": "quality",
+      "code": "void saveConfig(const Config& config, const std::string& path) {\n    std::ofstream(path) << serialize(config);\n    std::rename(path.c_str(), (path + \".active\").c_str());\n}\n",
+      "findings": [
+        {
+          "name": "non-atomic update",
+          "indicators": [
+            "atomic",
+            "temporary file",
+            "replace",
+            "partial write"
+          ]
+        },
+        {
+          "name": "serialization failure",
+          "indicators": [
+            "serialization",
+            "exception",
+            "stream state",
+            "error"
+          ]
+        },
+        {
+          "name": "durability",
+          "indicators": [
+            "fsync",
+            "flush",
+            "durability",
+            "sync"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "quality-09",
+      "category": "quality",
+      "code": "std::vector<Record> normalize(const std::vector<Record>& records) {\n    std::vector<Record> output;\n    for (auto record : records) {\n        record.name = toLower(trim(record.name));\n        record.score = std::stoi(record.score);\n        output.push_back(record);\n    }\n    return output;\n}\n",
+      "findings": [
+        {
+          "name": "missing input validation",
+          "indicators": [
+            "validation",
+            "stoi",
+            "invalid_argument",
+            "malformed",
+            "exception"
+          ]
+        },
+        {
+          "name": "avoidable copy",
+          "indicators": [
+            "copy",
+            "by value",
+            "reference",
+            "transform"
+          ]
+        },
+        {
+          "name": "batch processing",
+          "indicators": [
+            "transform",
+            "algorithm",
+            "functional",
+            "reserve"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "quality-10",
+      "category": "quality",
+      "code": "Value retry(std::function<Value()> operation) {\n    for (int attempt = 0; attempt < 5; attempt++) {\n        try {\n            return operation();\n        } catch (...) {\n            std::this_thread::sleep_for(std::chrono::seconds(1 << attempt));\n        }\n    }\n    return Value{};\n}\n",
+      "findings": [
+        {
+          "name": "indiscriminate retry",
+          "indicators": [
+            "retryable",
+            "catch (...)",
+            "non-retryable",
+            "exception type"
+          ]
+        },
+        {
+          "name": "failure swallowed",
+          "indicators": [
+            "last error",
+            "swallow",
+            "default value",
+            "rethrow"
+          ]
+        },
+        {
+          "name": "missing jitter",
+          "indicators": [
+            "jitter",
+            "thundering herd",
+            "backoff"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "security-01",
+      "category": "security",
+      "code": "Row findUser(sqlite3* db, const std::string& email) {\n    std::string query = \"SELECT id, email FROM users WHERE email = '\" + email + \"'\";\n    return sqlite3_exec(db, query.c_str(), nullptr, nullptr, nullptr);\n}\n",
+      "findings": [
+        {
+          "name": "CWE-89 SQL injection",
+          "indicators": [
+            "cwe-89",
+            "sql injection"
+          ]
+        },
+        {
+          "name": "parameterized query",
+          "indicators": [
+            "prepare",
+            "bind",
+            "parameterized",
+            "sqlite3_prepare"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "security-02",
+      "category": "security",
+      "code": "std::string downloadReport(const fs::path& baseDir, const std::string& filename) {\n    std::ifstream file(baseDir / filename);\n    return {std::istreambuf_iterator<char>(file), {}};\n}\n",
+      "findings": [
+        {
+          "name": "CWE-22 path traversal",
+          "indicators": [
+            "cwe-22",
+            "path traversal",
+            "directory traversal",
+            "../"
+          ]
+        },
+        {
+          "name": "resolved containment",
+          "indicators": [
+            "canonical",
+            "weakly_canonical",
+            "containment",
+            "allowlist",
+            "lexically"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "security-03",
+      "category": "security",
+      "code": "int convertImage(const std::string& filename, const std::string& size) {\n    std::string command = \"convert \" + filename + \" -resize \" + size + \" output.png\";\n    return std::system(command.c_str());\n}\n",
+      "findings": [
+        {
+          "name": "CWE-78 command injection",
+          "indicators": [
+            "cwe-78",
+            "command injection",
+            "system(",
+            "shell"
+          ]
+        },
+        {
+          "name": "argument vector",
+          "indicators": [
+            "exec",
+            "argv",
+            "fork+exec",
+            "no shell"
+          ]
+        },
+        {
+          "name": "input validation",
+          "indicators": [
+            "allowlist",
+            "validate",
+            "size format",
+            "filename"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "security-04",
+      "category": "security",
+      "code": "std::string preview(const std::string& url) {\n    CURL* curl = curl_easy_init();\n    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());\n    curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);\n    return perform(curl);\n}\n",
+      "findings": [
+        {
+          "name": "CWE-918 SSRF",
+          "indicators": [
+            "cwe-918",
+            "ssrf",
+            "server-side request forgery"
+          ]
+        },
+        {
+          "name": "address validation",
+          "indicators": [
+            "private ip",
+            "loopback",
+            "metadata",
+            "allowlist",
+            "curlop"
+          ]
+        },
+        {
+          "name": "redirect revalidation",
+          "indicators": [
+            "redirect",
+            "followlocation",
+            "revalidate",
+            "each hop"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "security-05",
+      "category": "security",
+      "code": "Preferences loadPreferences(const std::string& cookie) {\n    auto raw = base64Decode(cookie);\n    Preferences prefs;\n    std::memcpy(&prefs, raw.data(), sizeof(Preferences));\n    return prefs;\n}\n",
+      "findings": [
+        {
+          "name": "CWE-502 deserialization",
+          "indicators": [
+            "cwe-502",
+            "deserialization",
+            "memcpy",
+            "untrusted"
+          ]
+        },
+        {
+          "name": "type confusion",
+          "indicators": [
+            "memcpy",
+            "raw bytes",
+            "layout",
+            "type confusion",
+            "undefined behavior"
+          ]
+        },
+        {
+          "name": "safe format",
+          "indicators": [
+            "json",
+            "schema",
+            "safe format",
+            "validated"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "security-06",
+      "category": "security",
+      "code": "std::string storePassword(const std::string& password) {\n    const std::string salt = \"company-static-salt\";\n    return sha256(salt + password);\n}\n",
+      "findings": [
+        {
+          "name": "CWE-916 password hashing",
+          "indicators": [
+            "cwe-916",
+            "password hash",
+            "fast hash",
+            "sha256"
+          ]
+        },
+        {
+          "name": "password KDF",
+          "indicators": [
+            "argon2",
+            "scrypt",
+            "bcrypt",
+            "pbkdf2"
+          ]
+        },
+        {
+          "name": "unique salt",
+          "indicators": [
+            "random salt",
+            "unique salt",
+            "static salt",
+            "per-user"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "security-07",
+      "category": "security",
+      "code": "std::string currentUser(const std::string& token) {\n    auto decoded = jwt::decode(token);\n    return decoded.get_payload_claim(\"sub\").as_string();\n}\n",
+      "findings": [
+        {
+          "name": "CWE-347 signature validation",
+          "indicators": [
+            "cwe-347",
+            "signature",
+            "verify",
+            "decode without"
+          ]
+        },
+        {
+          "name": "claim validation",
+          "indicators": [
+            "issuer",
+            "audience",
+            "expiration",
+            "exp"
+          ]
+        },
+        {
+          "name": "algorithm restriction",
+          "indicators": [
+            "algorithm allowlist",
+            "algorithms",
+            "algorithm confusion"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "security-08",
+      "category": "security",
+      "code": "void invoice(const Request& req, Response& res) {\n    int invoiceId = std::stoi(req.path_params.at(\"id\"));\n    res.body = database.getInvoice(invoiceId).toJson();\n}\n",
+      "findings": [
+        {
+          "name": "CWE-639 IDOR",
+          "indicators": [
+            "cwe-639",
+            "idor",
+            "insecure direct object",
+            "bola"
+          ]
+        },
+        {
+          "name": "object authorization",
+          "indicators": [
+            "ownership",
+            "authorization",
+            "tenant",
+            "access control"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "security-09",
+      "category": "security",
+      "code": "void unpack(const std::string& upload, const std::string& destination) {\n    mz_zip_archive archive{};\n    mz_zip_reader_init_file(&archive, upload.c_str(), 0);\n    mz_zip_reader_extract_all_to(&archive, destination.c_str());\n}\n",
+      "findings": [
+        {
+          "name": "Zip Slip traversal",
+          "indicators": [
+            "zip slip",
+            "path traversal",
+            "cwe-22",
+            "../"
+          ]
+        },
+        {
+          "name": "resource exhaustion",
+          "indicators": [
+            "zip bomb",
+            "resource exhaustion",
+            "size limit",
+            "compression ratio"
+          ]
+        },
+        {
+          "name": "member validation",
+          "indicators": [
+            "member",
+            "resolve",
+            "containment",
+            "symlink",
+            "sanitiz"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "security-10",
+      "category": "security",
+      "code": "Session login(const Request& request) {\n    LOG(INFO) << \"login email=\" << request.email\n              << \" password=\" << request.password\n              << \" token=\" << request.token;\n    return authenticate(request.email, request.password);\n}\n",
+      "findings": [
+        {
+          "name": "CWE-532 sensitive logging",
+          "indicators": [
+            "cwe-532",
+            "sensitive log",
+            "logging sensitive"
+          ]
+        },
+        {
+          "name": "credential exposure",
+          "indicators": [
+            "password",
+            "token",
+            "credential",
+            "secret"
+          ]
+        },
+        {
+          "name": "redaction",
+          "indicators": [
+            "redact",
+            "mask",
+            "omit",
+            "structured logging"
+          ]
+        }
+      ]
+    }
+  ]
+}

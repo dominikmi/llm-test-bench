@@ -1,0 +1,675 @@
+{
+  "language": "ruby",
+  "cases": [
+    {
+      "case_id": "quality-01",
+      "category": "quality",
+      "code": "def load_names(path)\n    file = File.open(path)\n    file.readlines.map(&:strip).reject(&:empty?)\nend\n",
+      "findings": [
+        {
+          "name": "resource management",
+          "indicators": [
+            "block form",
+            "file.read",
+            "not closed",
+            "resource leak",
+            "ensure"
+          ]
+        },
+        {
+          "name": "unnecessary materialization",
+          "indicators": [
+            "readlines",
+            "each_line",
+            "memory",
+            "stream",
+            "lazy"
+          ]
+        },
+        {
+          "name": "missing error handling",
+          "indicators": [
+            "enoent",
+            "rescue",
+            "error handling",
+            "exception"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "quality-02",
+      "category": "quality",
+      "code": "def calculate_total(items)\n    total = 0\n    items.each do |item|\n      if item[\"active\"] == true\n        total = total + item[\"price\"].to_f * item[\"quantity\"].to_i\n      end\n    end\n    total.round(2)\nend\n",
+      "findings": [
+        {
+          "name": "money precision",
+          "indicators": [
+            "bigdecimal",
+            "floating point",
+            "float",
+            "currency",
+            "cents"
+          ]
+        },
+        {
+          "name": "boolean comparison",
+          "indicators": [
+            "== true",
+            "truthiness",
+            "boolean comparison",
+            "!!"
+          ]
+        },
+        {
+          "name": "data validation",
+          "indicators": [
+            "validation",
+            "keyerror",
+            "missing key",
+            "nil",
+            "fetch"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "quality-03",
+      "category": "quality",
+      "code": "class UserService\n  def create(data)\n    user = @db.insert(data)\n    @mailer.send(data[\"email\"], \"welcome\")\n    @analytics.track(\"created\", user.id)\n    user\n  end\nend\n",
+      "findings": [
+        {
+          "name": "partial failure consistency",
+          "indicators": [
+            "transaction",
+            "rollback",
+            "partial failure",
+            "consistency"
+          ]
+        },
+        {
+          "name": "dependency definition",
+          "indicators": [
+            "initializer",
+            "initialize",
+            "dependency injection",
+            "undefined"
+          ]
+        },
+        {
+          "name": "mixed responsibilities",
+          "indicators": [
+            "single responsibility",
+            "orchestration",
+            "multiple responsibilities"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "quality-04",
+      "category": "quality",
+      "code": "async def fetch_all(urls, client)\n    results = []\n    urls.each do |url|\n      response = client.get(url).wait\n      results << response.read\n    end\n    results\nend\n",
+      "findings": [
+        {
+          "name": "sequential async IO",
+          "indicators": [
+            "concurrent",
+            "async.collect",
+            "parallel",
+            "sequential",
+            "map"
+          ]
+        },
+        {
+          "name": "response lifecycle",
+          "indicators": [
+            "close",
+            "release",
+            "response context",
+            "ensure"
+          ]
+        },
+        {
+          "name": "bounded concurrency",
+          "indicators": [
+            "semaphore",
+            "bounded",
+            "rate limit",
+            "limit concurrency"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "quality-05",
+      "category": "quality",
+      "code": "def find_duplicates(values)\n    duplicates = []\n    values.each_with_index do |value, i|\n      values[(i + 1)..].each do |other|\n        duplicates << value if value == other && !duplicates.include?(value)\n      end\n    end\n    duplicates\nend\n",
+      "findings": [
+        {
+          "name": "quadratic complexity",
+          "indicators": [
+            "o(n^2)",
+            "quadratic",
+            "nested loop"
+          ]
+        },
+        {
+          "name": "set-based algorithm",
+          "indicators": [
+            "set",
+            "hash",
+            "tally",
+            "seen"
+          ]
+        },
+        {
+          "name": "ambiguous ordering",
+          "indicators": [
+            "order",
+            "semantics",
+            "contract",
+            "uniq"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "quality-06",
+      "category": "quality",
+      "code": "def parse_age(value)\n    Integer(value)\nrescue\n    nil\nend\n",
+      "findings": [
+        {
+          "name": "bare rescue",
+          "indicators": [
+            "bare rescue",
+            "rescue =>",
+            "argumenterror",
+            "too broad",
+            "rescue exception"
+          ]
+        },
+        {
+          "name": "ambiguous failure",
+          "indicators": [
+            "nil",
+            "ambiguous",
+            "error information",
+            "sentinel"
+          ]
+        },
+        {
+          "name": "range validation",
+          "indicators": [
+            "range",
+            "negative",
+            "validation",
+            "bounds"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "quality-07",
+      "category": "quality",
+      "code": "class Report\n  @@cache = {}\n  def render(user_id, options = {})\n    options[\"user_id\"] = user_id\n    @@cache[user_id] ||= build_report(options)\n  end\nend\n",
+      "findings": [
+        {
+          "name": "shared class state",
+          "indicators": [
+            "@@",
+            "class variable",
+            "shared cache",
+            "global state"
+          ]
+        },
+        {
+          "name": "incorrect cache key",
+          "indicators": [
+            "cache key",
+            "options",
+            "stale",
+            "collision"
+          ]
+        },
+        {
+          "name": "memoization falsy bug",
+          "indicators": [
+            "||=",
+            "falsy",
+            "nil cache",
+            "memoiz"
+          ]
+        },
+        {
+          "name": "argument mutation",
+          "indicators": [
+            "mutat",
+            "options[",
+            "side effect",
+            "caller"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "quality-08",
+      "category": "quality",
+      "code": "def save_config(config, path)\n    path.write(JSON.generate(config))\n    path.rename(path.sub_ext(\".active\"))\nend\n",
+      "findings": [
+        {
+          "name": "non-atomic update",
+          "indicators": [
+            "atomic",
+            "temporary file",
+            "replace",
+            "partial write",
+            "rename"
+          ]
+        },
+        {
+          "name": "serialization failure",
+          "indicators": [
+            "serialization",
+            "json",
+            "generatorerror",
+            "validation"
+          ]
+        },
+        {
+          "name": "encoding and durability",
+          "indicators": [
+            "encoding",
+            "fsync",
+            "durability",
+            "flush"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "quality-09",
+      "category": "quality",
+      "code": "def normalize(records)\n    output = []\n    records.each do |record|\n      copied = record.dup\n      copied[\"name\"] = copied[\"name\"].strip.downcase\n      copied[\"score\"] = Integer(copied[\"score\"])\n      output << copied\n    end\n    output\nend\n",
+      "findings": [
+        {
+          "name": "missing input validation",
+          "indicators": [
+            "validation",
+            "missing",
+            "keyerror",
+            "malformed",
+            "nil"
+          ]
+        },
+        {
+          "name": "shallow copy",
+          "indicators": [
+            "shallow copy",
+            "dup",
+            "nested",
+            "deep copy",
+            "copy semantics"
+          ]
+        },
+        {
+          "name": "batch data processing",
+          "indicators": [
+            "map",
+            "each_with_object",
+            "functional",
+            "large dataset"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "quality-10",
+      "category": "quality",
+      "code": "def retry(operation)\n    5.times do |attempt|\n      begin\n        return operation.call\n      rescue StandardError\n        sleep(2**attempt)\n      end\n    end\n    nil\nend\n",
+      "findings": [
+        {
+          "name": "indiscriminate retry",
+          "indicators": [
+            "retryable",
+            "all exceptions",
+            "non-retryable",
+            "standarderror"
+          ]
+        },
+        {
+          "name": "blocking sleep",
+          "indicators": [
+            "sleep",
+            "blocking",
+            "async",
+            "fiber"
+          ]
+        },
+        {
+          "name": "failure swallowed",
+          "indicators": [
+            "raise",
+            "swallow",
+            "return nil",
+            "last exception"
+          ]
+        },
+        {
+          "name": "missing jitter",
+          "indicators": [
+            "jitter",
+            "thundering herd",
+            "backoff"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "security-01",
+      "category": "security",
+      "code": "def find_user(email)\n    User.where(\"email = '#{email}'\").first\nend\n",
+      "findings": [
+        {
+          "name": "CWE-89 SQL injection",
+          "indicators": [
+            "cwe-89",
+            "sql injection",
+            "interpolation"
+          ]
+        },
+        {
+          "name": "parameterized query",
+          "indicators": [
+            "parameterized",
+            "placeholder",
+            "bind",
+            "sanitized",
+            "?"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "security-02",
+      "category": "security",
+      "code": "def download_report(base_dir, filename)\n    path = base_dir / filename\n    path.read\nend\n",
+      "findings": [
+        {
+          "name": "CWE-22 path traversal",
+          "indicators": [
+            "cwe-22",
+            "path traversal",
+            "directory traversal",
+            "../"
+          ]
+        },
+        {
+          "name": "resolved containment",
+          "indicators": [
+            "realpath",
+            "expand_path",
+            "containment",
+            "allowlist",
+            "fnmatch"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "security-03",
+      "category": "security",
+      "code": "def convert_image(filename, size)\n    system(\"convert #{filename} -resize #{size} output.png\")\nend\n",
+      "findings": [
+        {
+          "name": "CWE-78 command injection",
+          "indicators": [
+            "cwe-78",
+            "command injection",
+            "system",
+            "shell"
+          ]
+        },
+        {
+          "name": "argument vector",
+          "indicators": [
+            "array form",
+            "argument list",
+            "system(cmd, arg)",
+            "no shell"
+          ]
+        },
+        {
+          "name": "input validation",
+          "indicators": [
+            "allowlist",
+            "validate",
+            "size format",
+            "filename"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "security-04",
+      "category": "security",
+      "code": "def preview(url)\n    URI.open(url).read\nend\n",
+      "findings": [
+        {
+          "name": "CWE-918 SSRF",
+          "indicators": [
+            "cwe-918",
+            "ssrf",
+            "server-side request forgery",
+            "uri.open"
+          ]
+        },
+        {
+          "name": "address validation",
+          "indicators": [
+            "private ip",
+            "loopback",
+            "metadata",
+            "allowlist"
+          ]
+        },
+        {
+          "name": "redirect revalidation",
+          "indicators": [
+            "redirect",
+            "revalidate",
+            "each hop",
+            "open-uri"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "security-05",
+      "category": "security",
+      "code": "def load_preferences(cookie)\n    raw = Base64.decode64(cookie)\n    Marshal.load(raw)\nend\n",
+      "findings": [
+        {
+          "name": "CWE-502 deserialization",
+          "indicators": [
+            "cwe-502",
+            "insecure deserialization",
+            "marshal"
+          ]
+        },
+        {
+          "name": "safe format",
+          "indicators": [
+            "json",
+            "schema",
+            "safe format",
+            "signed",
+            "marshal.safe"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "security-06",
+      "category": "security",
+      "code": "def store_password(password)\n    salt = \"company-static-salt\"\n    Digest::SHA256.hexdigest(salt + password)\nend\n",
+      "findings": [
+        {
+          "name": "CWE-916 password hashing",
+          "indicators": [
+            "cwe-916",
+            "password hash",
+            "fast hash",
+            "sha256"
+          ]
+        },
+        {
+          "name": "password KDF",
+          "indicators": [
+            "argon2",
+            "scrypt",
+            "bcrypt",
+            "pbkdf2"
+          ]
+        },
+        {
+          "name": "unique salt",
+          "indicators": [
+            "random salt",
+            "unique salt",
+            "static salt",
+            "per-user"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "security-07",
+      "category": "security",
+      "code": "def current_user(token)\n    payload, = JWT.decode(token, nil, false)\n    payload[\"sub\"]\nend\n",
+      "findings": [
+        {
+          "name": "CWE-347 signature validation",
+          "indicators": [
+            "cwe-347",
+            "signature verification",
+            "verify",
+            "false"
+          ]
+        },
+        {
+          "name": "claim validation",
+          "indicators": [
+            "issuer",
+            "audience",
+            "expiration",
+            "exp"
+          ]
+        },
+        {
+          "name": "algorithm restriction",
+          "indicators": [
+            "algorithm allowlist",
+            "algorithms",
+            "algorithm confusion",
+            "none"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "security-08",
+      "category": "security",
+      "code": "def show\n    invoice = Invoice.find(params[:id])\n    render json: invoice\nend\n",
+      "findings": [
+        {
+          "name": "CWE-639 IDOR",
+          "indicators": [
+            "cwe-639",
+            "idor",
+            "insecure direct object",
+            "bola"
+          ]
+        },
+        {
+          "name": "object authorization",
+          "indicators": [
+            "ownership",
+            "authorization",
+            "current_user",
+            "access control",
+            "pundit"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "security-09",
+      "category": "security",
+      "code": "def unpack(upload, destination)\n    Zip::File.open(upload) do |archive|\n      archive.each { |entry| entry.extract(File.join(destination, entry.name)) }\n    end\nend\n",
+      "findings": [
+        {
+          "name": "Zip Slip traversal",
+          "indicators": [
+            "zip slip",
+            "path traversal",
+            "cwe-22",
+            "../"
+          ]
+        },
+        {
+          "name": "resource exhaustion",
+          "indicators": [
+            "zip bomb",
+            "resource exhaustion",
+            "size limit",
+            "compression ratio"
+          ]
+        },
+        {
+          "name": "member validation",
+          "indicators": [
+            "entry",
+            "expand_path",
+            "containment",
+            "symlink",
+            "sanitiz"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "security-10",
+      "category": "security",
+      "code": "def login(request)\n    Rails.logger.info(\"login email=#{request.email} password=#{request.password} token=#{request.token}\")\n    authenticate(request.email, request.password)\nend\n",
+      "findings": [
+        {
+          "name": "CWE-532 sensitive logging",
+          "indicators": [
+            "cwe-532",
+            "sensitive log",
+            "logging sensitive"
+          ]
+        },
+        {
+          "name": "credential exposure",
+          "indicators": [
+            "password",
+            "token",
+            "credential",
+            "secret"
+          ]
+        },
+        {
+          "name": "redaction",
+          "indicators": [
+            "redact",
+            "mask",
+            "filter_parameter",
+            "omit"
+          ]
+        }
+      ]
+    }
+  ]
+}

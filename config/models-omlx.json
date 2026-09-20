@@ -1,0 +1,8 @@
+[
+    "Ornith-1.5-35B-A3B-MLX-4bit",
+    "Tiel-Coder-35B-A3B-MLX-oQ4e-MTP",
+    "gemma-4-26B-A4B-it-QAT-MLX-4bit",
+    "Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled-MLX-oQ4-MTP",
+    "Devstral-Small-2-24B-Instruct-2512-6bit:devstral-code",
+    "Ternary-Bonsai-2-27B-MLX-4bit:bonsai2-coder"
+]
