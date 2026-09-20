@@ -8,13 +8,14 @@ Run: `--lang=cpp --presets --judge yes`, thinking enabled (budget 256),
 |---|---:|---:|---:|---:|---:|
 | gemma-4-26B-A4B-it-QAT-MLX-4bit | 86.83 | 79.67 | 94.00 | 432.9 | 61.8 |
 | Qwen3.6-35B-Claude-Distilled-MLX-oQ4-MTP | 81.25 | 70.93 | 91.57 | 405.4 | 75.8 |
+| Ternary-Bonsai-2-27B:bonsai2-coder † | 81.00 | 76.00 | 86.00 | 82.4 | 20.9 |
 | Tiel-Coder-35B-A3B-MLX-oQ4e-MTP | 80.27 | 77.88 | 82.67 | 477.2 | 65.1 |
 | Ornith-1.5-35B-A3B-MLX-4bit | 72.94 | 58.00 | 87.89 | 421.0 | 78.6 |
-| Ternary-Bonsai-2-27B:bonsai2-coder | 65.33 | 68.00 | 62.67 | 82.5 | 20.8 |
 | Devstral-Small-2-24B:devstral-code | 61.01 | 60.30 | 61.72 | 99.5 | 12.5 |
 
-*`security-08` was re-run on a corrected fixture (see below); all other cases
-are from the original run.*
+*`security-08` was re-run on a corrected fixture, and Bonsai was fully
+re-run with a per-model `max_tokens=4096` budget (†) — see below and
+`reports/OMLX_BONSAI_2026-09-20.md`.*
 
 ## Three-language comparison
 
@@ -24,7 +25,7 @@ are from the original run.*
 | Qwen3.6 | 81.81 | 91.56 | 81.25 | 10.3 |
 | Gemma | 81.17 | 86.01 | 86.83 | **5.7** |
 | Ornith | 82.44 | 80.70 | 72.94 | 9.5 |
-| Bonsai | 76.17 | 64.33 | 65.33 | 11.8 |
+| Bonsai † | 85.33 | 74.83 | 81.00 | 20.5 |
 | Devstral | 63.27 | 82.74 | 61.01 | 21.7 |
 
 Gemma is the most *consistent* model across languages (spread 5.7) and takes
@@ -40,7 +41,7 @@ board.
 | Tiel | 83.3 (83/83) | 88.0 | 12 | 1/20 | 7/20 | 20/20 |
 | Qwen3.6 | 80.0 (70/90) | 89.5 | 10 | 0/20 | 0/20 | 20/20 |
 | Ornith | 65.0 (43/87) | 97.3 | 2 | 8/20 | 6/20 | 20/20 |
-| Bonsai | 54.2 (53/55) | 100.0 | 0 | 20/20 | 0/20 | 20/20 |
+| Bonsai † | 73.3 (63/83) | 100.0 | 0 | 2/20 | 18/20 | 20/20 |
 | Devstral | 68.3 (63/73) | 67.5 | 36 | 0/20 | 19/20 | 0/20 |
 
 ## What the C++ run shows
@@ -58,12 +59,12 @@ board.
 - **Ornith's recall collapsed on quality** (43.3) — the conservative reviewer
   finds too little when cases get idiomatic (RAII, `std::` specifics) —
   though its security recall is now solid (86.7) with the fixed case.
-- **Bonsai hit a wall**: 20/20 truncated — every single response ran to the
-  cap. Think channel works (20/20), precision a perfect 100.0, but recall
-  54.2 is the field's worst. On C++'s denser cases the verbose medium-effort
-  reasoning never leaves room for the findings list. `max_tokens` 1024 is
-  now the binding constraint — this model needs a bigger budget or a terser
-  effort level to score what it knows.
+- **Bonsai † jumps to #3 (81.00)** after a full re-run with a per-model
+  `max_tokens=4096` budget: truncation collapsed 20/20 → 2/20, clean JSON
+  0/20 → 18/20, recall 54.2 → 73.3 — precision stayed a perfect 100.0. At
+  1024 it structurally could not finish answering; given headroom it edges
+  Tiel. It also scored 100 on the corrected `security-08` (3695 tokens — it
+  needed nearly all of them). Details: `reports/OMLX_BONSAI_2026-09-20.md`.
 - **Devstral fell back to earth** (61.0): 36 unsupported findings — nearly
   2/case — the padding strategy that was merely tolerated on JS gets
   punished when the judge can check against C++ specifics. Precision 67.5
@@ -91,16 +92,18 @@ rows were re-run (resume keys preserved everything else). Results:
 | Ornith, Gemma, Qwen3.6 | 100 | Caught both IDOR + missing object authorization |
 | Tiel | 0 | Reported `std::stoi` trailing-char parsing — a real but different defect |
 | Devstral | 0 | Listed CWE-190/CWE-754 parsing issues — never reached authorization |
-| Bonsai | 0 | Truncated at 1024 again — reasoning consumed the budget before findings |
+| Bonsai | 0 → 100 | Truncated at 1024 in the first pass; on the later
+full re-run at `max_tokens=4096` it caught both findings (3695 tokens used) |
 
-The corrected case now discriminates: 3/6 catch the IDOR, and the misses are
-instructive — Tiel and Devstral fixated on input parsing when two defects
-coexist, and Bonsai's verbosity remains its binding constraint. Leaderboard
-and diagnostics tables above reflect the fixed scores.
+The corrected case now discriminates: 4/6 catch the IDOR (given enough
+output budget), and the misses are instructive — Tiel and Devstral fixated
+on input parsing when two defects coexist. Leaderboard and diagnostics
+tables above reflect the fixed scores.
 
 ## Caveats
 
 - Cross-language absolute scores are not a shared scale — compare rankings.
-- Bonsai runs `reasoning_effort=medium`; Devstral is non-thinking — the
-  field is not thinking-normalized, and truncation stats reflect that.
+- Bonsai (†) runs `reasoning_effort=medium` and `max_tokens=4096`; Devstral
+  is non-thinking — the field is neither thinking- nor budget-normalized,
+  and truncation stats reflect that.
 - Judge `partial` verdicts count as matches; precision is judge-lenient.

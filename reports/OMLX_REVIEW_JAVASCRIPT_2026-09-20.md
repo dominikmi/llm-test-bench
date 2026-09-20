@@ -11,7 +11,11 @@ Run: `--lang=javascript --presets --judge yes`, thinking enabled (budget 256),
 | gemma-4-26B-A4B-it-QAT-MLX-4bit | 86.01 | 76.02 | 96.00 | 425.7 | 63.1 |
 | Devstral-Small-2-24B:devstral-code | 82.74 | 73.97 | 91.52 | 95.1 | 11.7 |
 | Ornith-1.5-35B-A3B-MLX-4bit | 80.70 | 66.74 | 94.67 | 324.7 | 77.4 |
-| Ternary-Bonsai-2-27B:bonsai2-coder | 64.33 | 64.67 | 64.00 | 88.3 | 22.9 |
+
+| Ternary-Bonsai-2-27B:bonsai2-coder † | 74.83 | 63.67 | 86.00 | 85.8 | 21.0 |
+
+*† Bonsai re-run with `reasoning_effort=medium` + `max_tokens=4096` —
+details in `reports/OMLX_BONSAI_2026-09-20.md`.*
 
 ## Cross-language comparison (vs Python run)
 
@@ -22,7 +26,7 @@ Run: `--lang=javascript --presets --judge yes`, thinking enabled (budget 256),
 | Gemma | 81.17 | 86.01 | +4.84 |
 | Devstral | 63.27 | 82.74 | **+19.47** |
 | Ornith | 82.44 | 80.70 | -1.74 |
-| Bonsai | 76.17 | 64.33 | **-11.84** |
+| Bonsai † | 85.33 | 74.83 | -10.50 |
 
 ## Per-model diagnostics
 
@@ -33,7 +37,7 @@ Run: `--lang=javascript --presets --judge yes`, thinking enabled (budget 256),
 | Gemma | 78.8 | 98.3 | 0.05 | 2/20 | 17/20 | 20/20 |
 | Devstral | 84.2 | 84.8 | 0.9 | 0/20 | 15/20 | 0/20 |
 | Ornith | 74.6 | 99.0 | 0.05 | 7/20 | 8/20 | 20/20 |
-| Bonsai | 57.5 | 95.0 | 0.05 | 19/20 | 1/20 | 20/20 |
+| Bonsai † | 67.5 | 100.0 | 0 | 1/20 | 19/20 | 20/20 |
 
 ## What changed vs Python
 
@@ -47,12 +51,11 @@ Run: `--lang=javascript --presets --judge yes`, thinking enabled (budget 256),
   mainstream languages, and it is the only non-thinking entry — its entire
   1024-token budget goes to findings while others spend it on reasoning.
   Its precision (84.8, ~0.9 unsupported/case) is still the weakest.
-- **Bonsai -11.8 — the fix held but JS hurt it.** The think channel works
-  (20/20 `reasoning_content`), precision 95.0, but recall collapsed to 57.5
-  and security dropped to 64.0. Still 19/20 truncated: medium-effort
-  reasoning plus verbose preamble eats the 1024 budget before findings
-  finish. On Python the judge salvaged more; on JS the truncation cost is
-  visible. This is now an output-budget problem, not a channel problem.
+- **Bonsai † 74.83 — still last, but the budget fix worked.** Re-run with a
+  per-model `max_tokens=4096`: clean JSON 1/20 → 19/20, truncation 19/20 →
+  1/20, precision a perfect 100.0, security 64.0 → 86.0. Recall (67.5) stays
+  the weak axis — quality especially (51.7). JS remains its worst language
+  (-10.5 vs Python); see `reports/OMLX_BONSAI_2026-09-20.md`.
 - **Ornith steady-precision, low recall**: 99.0 precision again, but recall
   74.6 — conservative on both languages. 7/20 truncated.
 
@@ -60,8 +63,9 @@ Run: `--lang=javascript --presets --judge yes`, thinking enabled (budget 256),
 
 - Cross-language scores are **not** a shared scale — different case files,
   loosely parallel difficulty. Compare rankings, not absolute numbers.
-- Bonsai runs `reasoning_effort=medium` (channel-split fix); others run
-  their template defaults — its row is best-tuned, not stock.
+- Bonsai (†) runs `reasoning_effort=medium` and `max_tokens=4096` — others
+  run template defaults at 1024 tokens. Its row is best-tuned, not
+  like-for-like; details in `reports/OMLX_BONSAI_2026-09-20.md`.
 - Devstral's `think=0/20` is expected — it is a non-reasoning instruct
   model; the field is not thinking-normalized.
 - Judge verdicts (`yes`/`partial`/`no`) treat `partial` as a match —

@@ -2,18 +2,22 @@
 
 Run: `--presets --judge yes`, thinking enabled (budget 256), `max_tokens=1024`,
 judge `critic-ornith:LATEST` on Galileo. 120 cases (6 models × 20), 0 failures.
-Bonsai was benchmarked twice: first broken (leaked CoT, 62.00 inflated), then
-rerun alone with the `reasoning-effort = medium` fix — the rerun numbers are
-shown below.
+Bonsai was benchmarked in three stages — broken (62.00), `reasoning_effort`
+fix (76.17), and a per-model `max_tokens=4096` budget (**85.33**, shown below).
+See `reports/OMLX_BONSAI_2026-09-20.md` for the full analysis; note its row is
+*not* like-for-like (bigger output budget).
 
 | Model | Overall | Quality | Security | PP tok/s | Out tok/s |
 |---|---:|---:|---:|---:|---:|
 | Tiel-Coder-35B-A3B-MLX-oQ4e-MTP | 90.27 | 82.76 | 97.78 | 464.0 | 62.7 |
+| Ternary-Bonsai-2-27B:bonsai2-coder † | 85.33 | 76.67 | 94.00 | 83.6 | 19.9 |
 | Ornith-1.5-35B-A3B-MLX-4bit | 82.44 | 68.00 | 96.89 | 425.3 | 79.2 |
 | Qwen3.6-35B-Claude-Distilled-MLX-oQ4-MTP | 81.81 | 70.67 | 92.96 | 402.0 | 76.1 |
 | gemma-4-26B-A4B-it-QAT-MLX-4bit | 81.17 | 71.67 | 90.67 | 397.0 | 56.0 |
-| Ternary-Bonsai-2-27B:bonsai2-coder | 76.17 | 62.67 | 89.67 | 88.3 | 22.4 |
 | Devstral-Small-2-24B:devstral-code | 63.27 | 63.74 | 62.80 | 298.9 | 12.3 |
+
+*† Bonsai ran `reasoning_effort=medium` and `max_tokens=4096` — see the
+dedicated Bonsai report for why.*
 
 ## Why the top four scored well
 
@@ -44,7 +48,7 @@ missed ~1 per case, just less often:
   zero unsupported findings) but the most conservative recall — it reports
   fewer defects, which caps the score despite perfect reliability.
 
-## The bottom two — one honest gap, one fixed bug
+## Devstral's honest gap — and Bonsai's fixed bugs
 
 ### Devstral (63.3): honest capability gap
 
@@ -55,7 +59,7 @@ findings per case (e.g. speculative "add bounds checks on quantity" findings the
 judge rejected). A 24B non-reasoning instruct model: finds the obvious defect,
 pads the list with marginal issues. This number is trustworthy.
 
-### Bonsai (76.2 after fix): template quirk fixed, still verbose
+### Bonsai (85.3 after two fixes): template quirk + budget starvation
 
 **First run (62.0, inflated):** 19/20 responses hit the 1024 cap, 19/20 leaked
 raw chain-of-thought into `content` ("We need answer user's request. Need
@@ -76,14 +80,17 @@ Fix shipped: `reasoning-effort = medium` in `presets-omlx.ini` for the
 `bonsai2-coder` alias — thinking stays **on**. (`OMLX_NO_THINKING_MODELS`
 remains available as an escape hatch for models that can't be fixed this way.)
 
-**Rerun (76.2, honest):** the fix works — `reasoning_content` populated on
-20/20 cases, precision a perfect 100.0 with zero unsupported findings (best
-in the field alongside Gemma), security 89.7 vs 64.0 before. Remaining
-weakness: medium-effort thinking is *verbose* — 19/20 still hit the 1024 cap
-and only 2/20 responses are pure JSON (most carry a "Let me analyze..."
-preamble that `parse_findings` tolerates). Recall is 66.7, so quality stays
-the weak axis (62.7). Raising `max_tokens` beyond 1024 may recover truncated
-findings; the model clearly has more to say than the budget allows.
+**Rerun with effort fix (76.2, honest):** the channel split works —
+`reasoning_content` populated on 20/20 cases, precision a perfect 100.0 with
+zero unsupported findings (best in the field alongside Gemma), security 89.7
+vs 64.0 before. Remaining weakness: medium-effort thinking is *verbose* —
+19/20 still hit the 1024 cap and only 2/20 responses were pure JSON.
+
+**Final rerun with 4096-token budget (85.33 — #2):** a per-model
+`max-tokens = 4096` preset let Bonsai finish its thoughts: clean JSON jumped
+to 19/20, truncation to 1/20, recall 66.7 → 77.5. Precision stayed 100.0.
+Full analysis including the eos and speculation investigations:
+`reports/OMLX_BONSAI_2026-09-20.md`.
 
 **Speed check (measured, not guessed):** ~20 out tok/s is dense-27B reality,
 not misconfiguration. The eos split (`config.json` 248044 vs
