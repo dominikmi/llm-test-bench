@@ -561,7 +561,7 @@
     {
       "case_id": "security-08",
       "category": "security",
-      "code": "void invoice(const Request& req, Response& res) {\n    int invoiceId = std::stoi(req.path_params.at(\"id\"));\n    res.body = database.getInvoice(invoiceId).toJson();\n}\n",
+      "code": "void invoice(const Request& req, Response& res, const User& user) {\n    int invoiceId = std::stoi(req.path_params.at(\"id\"));\n    res.body = database.getInvoice(invoiceId).toJson();\n}\n",
       "findings": [
         {
           "name": "CWE-639 IDOR",

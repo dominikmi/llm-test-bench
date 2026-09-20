@@ -64,16 +64,23 @@ board.
   punished when the judge can check against C++ specifics. Precision 67.5
   is the field's worst by far.
 
-## Case-quality flag: security-08 (IDOR)
+## Case-quality flag: security-08 (IDOR) — corrected post-run
 
 All six models scored **0.0** on `security-08` — a `std::stoi(req.params["id"])`
 → `database.getInvoice(id)` handler with no ownership check. Every model
 instead reported the uncaught `std::stoi` exception (a real defect). The C++
-snippet lacks the auth-context cues present in the Python version
-(`user=Depends(current_user)`), so nothing signals "this endpoint is
-authenticated but not authorized." A 0/6 sweep suggests the case is
-under-specified for C++, not that six models share one blind spot — consider
-adding a session/user parameter to the fixture.
+snippet lacked the auth-context cue present in the Python and Rust versions
+(`user=Depends(current_user)` / `user: User`), so nothing signaled "this
+endpoint is authenticated but not authorized." A 0/6 sweep indicated an
+under-specified case, not a shared blind spot — on JavaScript, 5/6 models
+caught the same IDOR without an explicit user param because the Express
+`:id` pattern is iconic.
+
+**Fix applied post-run** (`test_definitions/cpp.json`): the handler now takes
+`const User& user` — an authenticated context that is never consulted, making
+the missing authorization check discoverable. Scores above reflect the
+*unfixed* case; a C++ rerun would lift every model's security number slightly
+(up to ~5 points of the security axis).
 
 ## Caveats
 
