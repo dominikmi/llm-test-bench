@@ -2,6 +2,9 @@
 
 Run: `--presets --judge yes`, thinking enabled (budget 256), `max_tokens=1024`,
 judge `critic-ornith:LATEST` on Galileo. 120 cases (6 models × 20), 0 failures.
+Bonsai was benchmarked twice: first broken (leaked CoT, 62.00 inflated), then
+rerun alone with the `reasoning-effort = medium` fix — the rerun numbers are
+shown below.
 
 | Model | Overall | Quality | Security | PP tok/s | Out tok/s |
 |---|---:|---:|---:|---:|---:|
@@ -9,8 +12,8 @@ judge `critic-ornith:LATEST` on Galileo. 120 cases (6 models × 20), 0 failures.
 | Ornith-1.5-35B-A3B-MLX-4bit | 82.44 | 68.00 | 96.89 | 425.3 | 79.2 |
 | Qwen3.6-35B-Claude-Distilled-MLX-oQ4-MTP | 81.81 | 70.67 | 92.96 | 402.0 | 76.1 |
 | gemma-4-26B-A4B-it-QAT-MLX-4bit | 81.17 | 71.67 | 90.67 | 397.0 | 56.0 |
+| Ternary-Bonsai-2-27B:bonsai2-coder | 76.17 | 62.67 | 89.67 | 88.3 | 22.4 |
 | Devstral-Small-2-24B:devstral-code | 63.27 | 63.74 | 62.80 | 298.9 | 12.3 |
-| Ternary-Bonsai-2-27B:bonsai2-coder | 62.00 | 60.00 | 64.00 | 89.7 | 20.0 |
 
 ## Why the top four scored well
 
@@ -41,7 +44,7 @@ missed ~1 per case, just less often:
   zero unsupported findings) but the most conservative recall — it reports
   fewer defects, which caps the score despite perfect reliability.
 
-## Why Devstral and Bonsai scored low — two different failure modes
+## The bottom two — one honest gap, one fixed bug
 
 ### Devstral (63.3): honest capability gap
 
@@ -52,17 +55,19 @@ findings per case (e.g. speculative "add bounds checks on quantity" findings the
 judge rejected). A 24B non-reasoning instruct model: finds the obvious defect,
 pads the list with marginal issues. This number is trustworthy.
 
-### Bonsai (62.0): broken generation path, inflated score
+### Bonsai (76.2 after fix): template quirk fixed, still verbose
 
-19/20 responses hit the 1024 cap, 19/20 leaked raw chain-of-thought into
-`content` ("We need answer user's request. Need produce final JSON array
-only..."), and only 1/20 emitted a JSON array at all. In `security-06` it
-spiraled into a hallucinated CWE catalog — `CWE-364/365/366/367` all labeled
-"Use of Hard-coded Cryptographic Key" — until truncation.
+**First run (62.0, inflated):** 19/20 responses hit the 1024 cap, 19/20 leaked
+raw chain-of-thought into `content` ("We need answer user's request. Need
+produce final JSON array only..."), and only 1/20 emitted a JSON array at all.
+In `security-06` it spiraled into a hallucinated CWE catalog —
+`CWE-364/365/366/367` all labeled "Use of Hard-coded Cryptographic Key" —
+until truncation. The judge salvaged real findings from the leaked reasoning,
+so 62.0 overstated usable output.
 
-**Post-run diagnosis (verified live):** Bonsai's chat template leaks reasoning
-into `content` under its default `xhigh` reasoning effort (and under `low`) —
-the think channel never opens, `reasoning_content` stays empty, and the model
+**Diagnosis (verified live):** Bonsai's chat template leaks reasoning into
+`content` under its default `xhigh` reasoning effort (and under `low`) — the
+think channel never opens, `reasoning_content` stays empty, and the model
 rambles to the token cap. `reasoning_effort=medium` is the only level verified
 to emit a proper `reasoning_content` channel plus clean JSON `content`
 (reproducible 2/2). This is a model/template quirk, not a profile bug — the
@@ -71,10 +76,23 @@ Fix shipped: `reasoning-effort = medium` in `presets-omlx.ini` for the
 `bonsai2-coder` alias — thinking stays **on**. (`OMLX_NO_THINKING_MODELS`
 remains available as an escape hatch for models that can't be fixed this way.)
 
-**Its 62.0 is overstated**: unconstrained output falls into the blob-fallback,
-and the judge salvaged real findings from the leaked reasoning text. As a
-measurement of *usable structured output*, Bonsai effectively failed the suite.
-A rerun with the medium-effort preset will produce the honest number.
+**Rerun (76.2, honest):** the fix works — `reasoning_content` populated on
+20/20 cases, precision a perfect 100.0 with zero unsupported findings (best
+in the field alongside Gemma), security 89.7 vs 64.0 before. Remaining
+weakness: medium-effort thinking is *verbose* — 19/20 still hit the 1024 cap
+and only 2/20 responses are pure JSON (most carry a "Let me analyze..."
+preamble that `parse_findings` tolerates). Recall is 66.7, so quality stays
+the weak axis (62.7). Raising `max_tokens` beyond 1024 may recover truncated
+findings; the model clearly has more to say than the budget allows.
+
+**Speed check (measured, not guessed):** ~20 out tok/s is dense-27B reality,
+not misconfiguration. The eos split (`config.json` 248044 vs
+`generation_config.json` 248046) is cosmetic — `<|im_end|>` terminates chat
+correctly. DFlash2 draft speculation engages (52–75% acceptance) but gains
+nothing measurable because the draft runs at ~target speed; the built-in MTP
+head (`vlm_mtp_enabled`) is *slower* (~14 vs ~16 tok/s) and conflicts with
+TurboQuant KV. MoE models beat dense on throughput by design — the gap is
+architectural, not a bug.
 
 ## Caveats
 
@@ -82,6 +100,9 @@ A rerun with the medium-effort preset will produce the honest number.
   thinking mode dropped the schema — the label is a stale hardcoded string.
 - Precision under thinking mode is slightly optimistic for all models
   (blob-fallback salvage); the judge mitigates but doesn't eliminate it.
-- Throughput: profile aliases ran slowest (Devstral 12.3, Bonsai 20.0 out
-  tok/s) — server-side profile sampling adds overhead vs. the bare models'
-  56–79 tok/s.
+- Bonsai's rerun used `reasoning_effort=medium` while the other five ran
+  their defaults — treat its row as "best-tuned Bonsai", not stock config.
+- Throughput: profile aliases ran slowest (Devstral 12.3, Bonsai 22.4 out
+  tok/s) — but this is dense-vs-MoE architecture, not profile overhead:
+  the four leaders are all MoE (3–4B active params), Devstral and Bonsai
+  are dense 24–27B.
