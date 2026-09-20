@@ -11,7 +11,6 @@ Run: `--lang=javascript --presets --judge yes`, thinking enabled (budget 256),
 | gemma-4-26B-A4B-it-QAT-MLX-4bit | 86.01 | 76.02 | 96.00 | 425.7 | 63.1 |
 | Devstral-Small-2-24B:devstral-code | 82.74 | 73.97 | 91.52 | 95.1 | 11.7 |
 | Ornith-1.5-35B-A3B-MLX-4bit | 80.70 | 66.74 | 94.67 | 324.7 | 77.4 |
-
 | Ternary-Bonsai-2-27B:bonsai2-coder † | 74.83 | 63.67 | 86.00 | 85.8 | 21.0 |
 
 *† Bonsai re-run with `reasoning_effort=medium` + `max_tokens=4096` —
