@@ -28,3 +28,6 @@ opencode-agent-suite/
 # OS / editor
 .DS_Store
 Untitled.txt
+
+# Local-only vetting tool (contains private denylist tokens)
+tools/
