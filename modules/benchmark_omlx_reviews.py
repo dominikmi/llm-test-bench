@@ -48,8 +48,8 @@ from pathlib import Path
 from statistics import mean
 from typing import Any, Final
 
-import benchmark_galileo_reviews as galileo
-from benchmark_galileo_reviews import (
+from . import benchmark_galileo_reviews as galileo
+from .benchmark_galileo_reviews import (
     BenchmarkRequestError,
     CaseResult,
     JudgeClient,
@@ -61,7 +61,7 @@ from benchmark_galileo_reviews import (
     load_models,
     score_response,
 )
-from benchmark_paths import (
+from .benchmark_paths import (
     CONFIG_DIR,
     LOGS_DIR,
     OMLX_REVIEW_ARCHIVES_DIR,
@@ -69,7 +69,7 @@ from benchmark_paths import (
     TEST_DEFINITIONS_DIR,
     ensure_parent_directories,
 )
-from review_definitions import (
+from .review_definitions import (
     ReviewCase,
     available_languages,
     load_case_definitions,

@@ -4,7 +4,7 @@
 import json
 from typing import Any
 
-from benchmark_galileo_reviews import (
+from .benchmark_galileo_reviews import (
     MODELS,
     QUALITY_CASES,
     BenchmarkRequestError,
@@ -13,7 +13,7 @@ from benchmark_galileo_reviews import (
     load_presets,
     score_response,
 )
-from benchmark_paths import CONFIG_DIR, JUDGE_RESULTS_DIR, ensure_parent_directories
+from .benchmark_paths import CONFIG_DIR, JUDGE_RESULTS_DIR, ensure_parent_directories
 
 # Model under test
 MODEL = "coder-gemma4-26B-A4B-it:LATEST"

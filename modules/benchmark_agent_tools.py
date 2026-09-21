@@ -34,14 +34,17 @@ from typing import Any, Final, Literal, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-import benchmark_omlx_reviews as omlx
-from benchmark_galileo_reviews import (
+from . import benchmark_galileo_reviews as galileo
+from . import benchmark_omlx_reviews as omlx
+from .benchmark_galileo_reviews import (
     BenchmarkRequestError,
     atomic_write,
     load_models,
 )
-from benchmark_paths import (
+from .benchmark_paths import (
     CONFIG_DIR,
+    GALILEO_TOOLS_ARCHIVES_DIR,
+    GALILEO_TOOLS_RESULTS_DIR,
     LOGS_DIR,
     OMLX_TOOLS_ARCHIVES_DIR,
     OMLX_TOOLS_RESULTS_DIR,
@@ -55,27 +58,53 @@ _as_float = omlx._as_float
 SUITE_PATH: Final = Path(
     os.getenv("OMLX_TOOLS_SUITE", str(TEST_DEFINITIONS_DIR / "tool_use.json"))
 )
-MODELS_PATH: Final = Path(
-    os.getenv("OMLX_MODELS", str(CONFIG_DIR / "models-omlx.json"))
+
+BACKENDS: Final = ("omlx", "galileo")
+
+
+def _env(prefix: str, name: str, default: str) -> str:
+    """Read a backend-namespaced environment variable."""
+    return os.getenv(f"{prefix}_{name}", default)
+
+
+# Rebound by resolve_backend() once --backend is known.
+BACKEND = "omlx"
+MODELS_PATH = Path(
+    _env("OMLX", "MODELS", str(CONFIG_DIR / "models-omlx.json"))
 )
-MAX_TOKENS: Final = int(os.getenv("OMLX_MAX_TOKENS", "1024"))
-RETRY_FAILURES: Final = omlx.RETRY_FAILURES
-START_MODEL: Final = omlx.START_MODEL
-WARMUP_ENABLED: Final = omlx.WARMUP_ENABLED
-PRESETS_PATH: Final = omlx.PRESETS_PATH
+MAX_TOKENS = int(_env("OMLX", "MAX_TOKENS", "1024"))
+RETRY_FAILURES = omlx.RETRY_FAILURES
+START_MODEL = omlx.START_MODEL
+WARMUP_ENABLED = omlx.WARMUP_ENABLED
+PRESETS_PATH = omlx.PRESETS_PATH
+
 
 def _artifact_paths(suite_name: str) -> tuple[Path, Path, Path, Path]:
-    """Return results, CSV, Markdown, and log paths for a suite."""
+    """Return results, CSV, Markdown, and log paths for a suite+backend."""
+    prefix = BACKEND.upper()
+    results_dir = (
+        GALILEO_TOOLS_RESULTS_DIR if BACKEND == "galileo" else OMLX_TOOLS_RESULTS_DIR
+    )
     results = Path(
         os.getenv(
-            "OMLX_BENCH_RESULTS",
-            str(OMLX_TOOLS_RESULTS_DIR / f"omlx-{suite_name}-results.json"),
+            f"{prefix}_BENCH_RESULTS",
+            str(results_dir / f"{BACKEND}-{suite_name}-results.json"),
         )
     )
     log = Path(
-        os.getenv("OMLX_BENCH_LOG", str(LOGS_DIR / f"omlx-{suite_name}.log"))
+        os.getenv(
+            f"{prefix}_BENCH_LOG",
+            str(LOGS_DIR / f"{BACKEND}-{suite_name}.log"),
+        )
     )
     return results, results.with_suffix(".csv"), results.with_suffix(".md"), log
+
+
+def _archives_dir() -> Path:
+    """Archive directory for the active backend."""
+    if BACKEND == "galileo":
+        return GALILEO_TOOLS_ARCHIVES_DIR
+    return OMLX_TOOLS_ARCHIVES_DIR
 
 
 # Rebound by resolve_report_paths() once --suite is known.
@@ -88,6 +117,33 @@ def resolve_report_paths(suite_name: str) -> None:
     RESULTS_PATH, CSV_PATH, REPORT_PATH, LOG_PATH = _artifact_paths(suite_name)
 
 
+def resolve_backend(backend: str) -> None:
+    """Rebind backend-dependent globals after --backend is parsed."""
+    global BACKEND, MODELS_PATH, MAX_TOKENS, MODELS
+    global RETRY_FAILURES, START_MODEL, WARMUP_ENABLED, PRESETS_PATH
+    BACKEND = backend
+    prefix = backend.upper()
+    if backend == "galileo":
+        MODELS_PATH = Path(
+            _env(prefix, "MODELS", str(CONFIG_DIR / "models.json"))
+        )
+        MAX_TOKENS = int(_env(prefix, "MAX_TOKENS", "1024"))
+        RETRY_FAILURES = galileo.RETRY_FAILURES
+        START_MODEL = galileo.START_MODEL
+        WARMUP_ENABLED = False
+        PRESETS_PATH = galileo.PRESETS_PATH
+    else:
+        MODELS_PATH = Path(
+            _env(prefix, "MODELS", str(CONFIG_DIR / "models-omlx.json"))
+        )
+        MAX_TOKENS = int(_env(prefix, "MAX_TOKENS", "1024"))
+        RETRY_FAILURES = omlx.RETRY_FAILURES
+        START_MODEL = omlx.START_MODEL
+        WARMUP_ENABLED = omlx.WARMUP_ENABLED
+        PRESETS_PATH = omlx.PRESETS_PATH
+    MODELS = load_models(MODELS_PATH)
+
+
 SUITE_FILES: Final[dict[str, str]] = {
     "tool-use": "tool_use.json",
     "logic": "logic.json",
@@ -95,7 +151,7 @@ SUITE_FILES: Final[dict[str, str]] = {
 
 SCHEMA_VERSION: Final = 2
 LOGGER: Final = logging.getLogger("omlx-tools-benchmark")
-MODELS: Final[tuple[str, ...]] = load_models(MODELS_PATH)
+MODELS: tuple[str, ...] = load_models(MODELS_PATH)
 
 
 class FieldSpec(BaseModel):
@@ -539,7 +595,7 @@ def _classify_call(
 
 
 class ChatTransport(Protocol):
-    """Minimal transport surface ToolLoop needs (satisfied by OmlxClient)."""
+    """Transport surface satisfied by OmlxClient and GalileoClient."""
 
     _presets: dict[str, dict[str, Any]]
 
@@ -549,6 +605,8 @@ class ChatTransport(Protocol):
         path: str,
         payload: dict[str, Any] | None = None,
     ) -> dict[str, Any]: ...
+
+    def models(self) -> dict[str, Any]: ...
 
 
 class ToolLoop:
@@ -761,6 +819,11 @@ class ToolLoop:
             "stream": False,
             "chat_template_kwargs": {"enable_thinking": True},
         }
+        if BACKEND == "galileo":
+            # llama.cpp dialect: native timing fields and the budget spelling.
+            payload["timings_per_token"] = True
+            payload["t_max_predict_ms"] = galileo.PREDICT_TIMEOUT_MS
+            payload["thinking_budget_tokens"] = galileo.THINKING_BUDGET_TOKENS
         if tools:
             payload["tools"] = tools
             payload["tool_choice"] = "auto"
@@ -771,7 +834,9 @@ class ToolLoop:
                 payload["chat_template_kwargs"]["enable_thinking"] = bool(
                     sampling["enable_thinking"]
                 )
-        elif ":" in self._model:
+        elif BACKEND == "omlx" and ":" in self._model:
+            # oMLX "model:profile" aliases carry tuned server-side sampling.
+            # Galileo ":TAG" aliases are router names — keep temperature.
             payload.pop("temperature")
         response = self._client._request_with_retry(
             "POST", "/chat/completions", payload
@@ -783,7 +848,24 @@ class ToolLoop:
         if not isinstance(message, dict):
             raise TypeError("Chat response missing message")
         usage = response.get("usage")
-        return message, usage if isinstance(usage, dict) else {}
+        usage = dict(usage) if isinstance(usage, dict) else {}
+        if BACKEND == "galileo":
+            # llama.cpp reports under `timings` (authoritative) plus `usage`.
+            timings = response.get("timings")
+            if isinstance(timings, dict):
+                usage["prompt_tokens"] = _as_int(
+                    timings.get("prompt_n"), usage.get("prompt_tokens")
+                )
+                usage["completion_tokens"] = _as_int(
+                    timings.get("predicted_n"), usage.get("completion_tokens")
+                )
+                usage["prompt_tokens_per_second"] = _as_float(
+                    timings.get("prompt_per_second")
+                )
+                usage["generation_tokens_per_second"] = _as_float(
+                    timings.get("predicted_per_second")
+                )
+        return message, usage
 
 
 def summarize(results: list[ToolCaseResult]) -> dict[str, dict[str, float]]:
@@ -837,6 +919,30 @@ def summarize(results: list[ToolCaseResult]) -> dict[str, dict[str, float]]:
     return summaries
 
 
+def _backend_base_url() -> str:
+    """Endpoint URL recorded in reports for the active backend."""
+    return galileo.BASE_URL if BACKEND == "galileo" else omlx.BASE_URL
+
+
+def _backend_timeout() -> float:
+    """Request timeout for the active backend."""
+    return galileo.TIMEOUT_SECONDS if BACKEND == "galileo" else omlx.TIMEOUT_SECONDS
+
+
+def _backend_client(presets: dict[str, dict[str, Any]]) -> ChatTransport:
+    """Construct the transport for the active backend."""
+    if BACKEND == "galileo":
+        return galileo.GalileoClient(presets)
+    return omlx.OmlxClient(presets)
+
+
+def _backend_presets(path: Path) -> dict[str, dict[str, Any]]:
+    """Parse a preset file with the active backend's key dialect."""
+    if BACKEND == "galileo":
+        return galileo.load_presets(path)
+    return omlx.load_presets(path)
+
+
 def report_payload(
     results: list[ToolCaseResult],
     model_parameters: dict[str, dict[str, Any]],
@@ -848,14 +954,14 @@ def report_payload(
     return {
         "schema_version": SCHEMA_VERSION,
         "generated_at": datetime.now(UTC).isoformat(),
-        "base_url": omlx.BASE_URL,
+        "base_url": _backend_base_url(),
         "benchmark_parameters": {
-            "backend": "omlx",
+            "backend": BACKEND,
             "suite": suite_name,
             "models": list(MODELS),
             "cases": case_count,
             "max_tokens": MAX_TOKENS,
-            "request_timeout_seconds": omlx.TIMEOUT_SECONDS,
+            "request_timeout_seconds": _backend_timeout(),
             "stream": False,
             "judge": "none (deterministic grading)",
             "start_model": START_MODEL or None,
@@ -994,7 +1100,7 @@ def archive_reports() -> Path | None:
     )
     if not existing:
         return None
-    archive_directory = OMLX_TOOLS_ARCHIVES_DIR / datetime.now(UTC).strftime(
+    archive_directory = _archives_dir() / datetime.now(UTC).strftime(
         "%Y%m%dT%H%M%SZ"
     )
     archive_directory.mkdir(parents=True, exist_ok=False)
@@ -1049,16 +1155,23 @@ def main(argv: list[str] | None = None) -> int:
     """Run or resume the tool-use suite with one active model at a time."""
     parser = argparse.ArgumentParser(
         description=(
-            "Agentic tool-use benchmark (judge-free, simulated tools) "
-            "for models hosted on the local oMLX server."
+            "Agentic tool-use/logic benchmark (judge-free, simulated tools) "
+            "for models hosted on oMLX or Galileo."
         )
+    )
+    parser.add_argument(
+        "--backend",
+        choices=BACKENDS,
+        default="omlx",
+        help="Serving stack to benchmark: omlx (local MLX) or galileo (llama.cpp)",
     )
     parser.add_argument(
         "--presets",
         nargs="?",
-        const=str(CONFIG_DIR / "presets-omlx.ini"),
-        default=PRESETS_PATH,
-        help="Load per-model sampling presets from an INI file",
+        const="__default__",
+        default=None,
+        help="Load per-model sampling presets from an INI file "
+        "(bare flag uses the backend's default preset file)",
     )
     parser.add_argument(
         "--suite",
@@ -1067,6 +1180,7 @@ def main(argv: list[str] | None = None) -> int:
         help="Benchmark suite to run: simulated tool-use or single-turn logic",
     )
     args = parser.parse_args(argv if argv is not None else sys.argv[1:])
+    resolve_backend(args.backend)
     suite_name: str = args.suite
     resolve_report_paths(suite_name)
     tool_suite: ToolUseSuite | None = None
@@ -1081,9 +1195,15 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Cannot load {suite_name} suite: {error}", file=sys.stderr)
         return 1
     presets_path = args.presets
+    if presets_path == "__default__":
+        presets_path = str(
+            CONFIG_DIR / ("presets.ini" if BACKEND == "galileo" else "presets-omlx.ini")
+        )
+    elif presets_path is None:
+        presets_path = PRESETS_PATH
     presets: dict[str, dict[str, Any]] = {}
     if presets_path:
-        presets = omlx.load_presets(Path(presets_path))
+        presets = _backend_presets(Path(presets_path))
     archive_directory: Path | None = None
     if RETRY_FAILURES:
         try:
@@ -1094,7 +1214,7 @@ def main(argv: list[str] | None = None) -> int:
     configure_logging()
     if archive_directory is not None:
         LOGGER.info("Pre-retry reports archived at %s", archive_directory.resolve())
-    client = omlx.OmlxClient(presets)
+    client = _backend_client(presets)
     results, model_parameters = load_results()
     completed = {
         (result.model, result.case_id)
@@ -1103,7 +1223,11 @@ def main(argv: list[str] | None = None) -> int:
     }
     if START_MODEL:
         if START_MODEL not in MODELS:
-            LOGGER.error("OMLX_START_MODEL is not configured: %s", START_MODEL)
+            LOGGER.error(
+                "%s_START_MODEL is not configured: %s",
+                BACKEND.upper(),
+                START_MODEL,
+            )
             return 1
         active_models = MODELS[MODELS.index(START_MODEL) :]
     else:
@@ -1111,17 +1235,17 @@ def main(argv: list[str] | None = None) -> int:
     LOGGER.info(
         "Benchmark start endpoint=%s suite=%s models=%d cases=%d "
         "resumed=%d timeout=%.0fs",
-        omlx.BASE_URL,
+        _backend_base_url(),
         suite_name,
         len(active_models),
         len(suite_cases),
         len(results),
-        omlx.TIMEOUT_SECONDS,
+        _backend_timeout(),
     )
     try:
         advertised_models = client.models()
     except (BenchmarkRequestError, TypeError) as error:
-        LOGGER.error("Cannot list oMLX models: %s", error)
+        LOGGER.error("Cannot list %s models: %s", BACKEND, error)
         return 1
     missing = set(MODELS) - set(advertised_models)
     if missing:
@@ -1133,8 +1257,8 @@ def main(argv: list[str] | None = None) -> int:
             model_parameters[model]["sampling"] = presets[model.casefold()]
         LOGGER.info("Model %d/%d started: %s", model_index, len(active_models), model)
         loaded_once = any(result.model == model for result in results)
-        if WARMUP_ENABLED and not loaded_once:
-            load_seconds = client.warmup(model)
+        if WARMUP_ENABLED and not loaded_once and hasattr(client, "warmup"):
+            load_seconds = client.warmup(model)  # type: ignore[attr-defined]
             if load_seconds:
                 model_parameters[model]["model_load_seconds"] = load_seconds
         loop = ToolLoop(client, model)
@@ -1152,10 +1276,9 @@ def main(argv: list[str] | None = None) -> int:
                     result = loop.run(tool_suite, case)
                 else:
                     raise ValueError("tool-use case without loaded suite")
-                if not loaded_once and client.last_model_load_seconds:
-                    model_parameters[model]["model_load_seconds"] = (
-                        client.last_model_load_seconds
-                    )
+                load_seconds = getattr(client, "last_model_load_seconds", 0.0)
+                if not loaded_once and load_seconds:
+                    model_parameters[model]["model_load_seconds"] = load_seconds
                     loaded_once = True
                 LOGGER.info(
                     "Case scored model=%s case=%s progress=%d/%d quality=%.2f "

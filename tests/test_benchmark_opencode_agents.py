@@ -10,8 +10,8 @@ from dataclasses import asdict, replace
 from pathlib import Path
 from unittest.mock import Mock, call, patch
 
-import benchmark_opencode_agents as benchmark
-import benchmark_paths as paths
+from modules import benchmark_opencode_agents as benchmark
+from modules import benchmark_paths as paths
 
 
 class TestOpenCodeEvents(unittest.TestCase):
@@ -131,6 +131,17 @@ class TestOpenCodeEvents(unittest.TestCase):
         self.assertIn("Then make no further tool calls", prompt)
         self.assertIn("Prefer fewer high-confidence findings", prompt)
         self.assertNotIn("Do not call tools", prompt)
+
+    def test_command_uses_configured_provider_prefix(self) -> None:
+        """--model must carry the provider resolved by resolve_backend()."""
+        case = benchmark.CASES[0]
+        command = benchmark.build_command("model", case, "ses_test")
+        self.assertEqual(
+            "galileo/model", command[command.index("--model") + 1]
+        )
+        with patch.object(benchmark, "PROVIDER", "omlx"):
+            command = benchmark.build_command("model", case, "ses_test")
+        self.assertEqual("omlx/model", command[command.index("--model") + 1])
 
     def test_environment_isolates_serena_and_restricts_tools(self) -> None:
         """Set the step limit, explicit Serena project, and required-tool allowlist."""
@@ -332,7 +343,7 @@ class TestOpenCodeFailures(unittest.TestCase):
             saved.append((list(results), dict(sessions)))
 
         with (
-            patch.object(benchmark, "MODELS", (model,)),
+            patch.object(benchmark.galileo, "MODELS", (model,)),
             patch.object(benchmark, "CASES", cases),
             patch.object(benchmark, "SESSION_MODES", ("continuing",)),
             patch.object(benchmark, "RETRY_FAILURES", True),
@@ -401,7 +412,7 @@ class TestOpenCodeFailures(unittest.TestCase):
 
         saved: list[list[benchmark.AgentCaseResult]] = []
         with (
-            patch.object(benchmark, "MODELS", (model,)),
+            patch.object(benchmark.galileo, "MODELS", (model,)),
             patch.object(benchmark, "CASES", cases),
             patch.object(benchmark, "SESSION_MODES", ("continuing", "fresh")),
             patch.object(benchmark, "configure_logging"),

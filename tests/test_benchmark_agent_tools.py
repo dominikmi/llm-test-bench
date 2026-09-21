@@ -9,7 +9,7 @@ import unittest
 from pathlib import Path
 from typing import ClassVar
 
-import benchmark_agent_tools as tools
+from modules import benchmark_agent_tools as tools
 
 SUITE = tools.load_suite()
 
@@ -294,6 +294,10 @@ class FakeClient:
         self.last_model_load_seconds = 0.0
         self.payloads: list = []
 
+    def models(self) -> dict:
+        """ChatTransport protocol member; unused by ToolLoop."""
+        return {}
+
     def _request_with_retry(
         self, method: str, path: str, payload: dict | None = None
     ) -> dict:
@@ -397,6 +401,59 @@ class LoopTests(unittest.TestCase):
         self.assertEqual(result.calls, 2)
         self.assertEqual(result.turns, 2)
         self.assertEqual(result.call_efficiency, 1.0)
+
+
+class BackendDialectTests(unittest.TestCase):
+    """_chat must emit the active backend's request/usage dialect."""
+
+    def _chat(self, response: dict, backend: str) -> dict:
+        client = FakeClient([response])
+        original = tools.BACKEND
+        tools.BACKEND = backend
+        try:
+            tools.ToolLoop(client, "model:alias")._chat(
+                [{"role": "user", "content": "x"}], None
+            )
+        finally:
+            tools.BACKEND = original
+        return client.payloads[0]
+
+    def test_omlx_payload_drops_temperature_for_profile_aliases(self) -> None:
+        payload = self._chat(_chat_response(content="{}"), "omlx")
+        self.assertNotIn("temperature", payload)
+        self.assertNotIn("thinking_budget", payload)
+        self.assertNotIn("thinking_budget_tokens", payload)
+        self.assertNotIn("timings_per_token", payload)
+
+    def test_galileo_payload_keeps_temperature_for_router_aliases(self) -> None:
+        payload = self._chat(_chat_response(content="{}"), "galileo")
+        self.assertEqual(payload["temperature"], 0)
+        self.assertTrue(payload["timings_per_token"])
+        self.assertIn("t_max_predict_ms", payload)
+        self.assertIn("thinking_budget_tokens", payload)
+        self.assertNotIn("thinking_budget", payload)
+
+    def test_galileo_usage_normalized_from_timings(self) -> None:
+        response = _chat_response(content="{}")
+        response["timings"] = {
+            "prompt_n": 42,
+            "predicted_n": 7,
+            "prompt_per_second": 100.0,
+            "predicted_per_second": 25.0,
+        }
+        client = FakeClient([response])
+        original = tools.BACKEND
+        tools.BACKEND = "galileo"
+        try:
+            _, usage = tools.ToolLoop(client, "m")._chat(
+                [{"role": "user", "content": "x"}], None
+            )
+        finally:
+            tools.BACKEND = original
+        self.assertEqual(usage["prompt_tokens"], 42)
+        self.assertEqual(usage["completion_tokens"], 7)
+        self.assertEqual(usage["prompt_tokens_per_second"], 100.0)
+        self.assertEqual(usage["generation_tokens_per_second"], 25.0)
 
 
 class ReportWritingTests(unittest.TestCase):

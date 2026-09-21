@@ -3,7 +3,7 @@
 from pathlib import Path
 from typing import Final
 
-PROJECT_ROOT: Final = Path(__file__).resolve().parent
+PROJECT_ROOT: Final = Path(__file__).resolve().parent.parent
 CONFIG_DIR: Final = PROJECT_ROOT / "config"
 RESULTS_DIR: Final = PROJECT_ROOT / "results"
 LOGS_DIR: Final = PROJECT_ROOT / "logs"
@@ -22,6 +22,11 @@ OMLX_REVIEW_RESULTS_DIR: Final = RESULTS_DIR / "omlx-review"
 OMLX_REVIEW_ARCHIVES_DIR: Final = ARCHIVES_DIR / "omlx-review"
 OMLX_TOOLS_RESULTS_DIR: Final = RESULTS_DIR / "omlx-tools"
 OMLX_TOOLS_ARCHIVES_DIR: Final = ARCHIVES_DIR / "omlx-tools"
+GALILEO_TOOLS_RESULTS_DIR: Final = RESULTS_DIR / "galileo-tools"
+GALILEO_TOOLS_ARCHIVES_DIR: Final = ARCHIVES_DIR / "galileo-tools"
+OMLX_MATH_RESULTS_DIR: Final = RESULTS_DIR / "omlx-math"
+OMLX_MATH_ARCHIVES_DIR: Final = ARCHIVES_DIR / "omlx-math"
+OPENCODE_OMLX_RESULTS_DIR: Final = RESULTS_DIR / "opencode-omlx"
 TEST_DEFINITIONS_DIR: Final = PROJECT_ROOT / "test_definitions"
 
 

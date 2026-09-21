@@ -2,8 +2,9 @@
 
 ## Layout
 
-- `bench.py` is the single entry point: `bench.py <bench> [runner args]` with benches named `<backend>-<what>`: `omlx-review`, `galileo-review`, `omlx-tools`, `omlx-logic`, `omlx-agent`, `galileo-pipeline`, `galileo-math`. `omlx-tools`/`omlx-logic` alias `omlx-agent --suite tool-use|logic`. Individual runners remain directly runnable.
-- Benchmark runners and support modules remain at the project root.
+- `bin/` contains runnable entry points: `bin/bench.py <bench> [runner args]` dispatches to runners by `<backend>-<what>` names: `omlx-review`, `galileo-review`, `omlx-tools`, `omlx-logic`, `omlx-agent`, `galileo-tools`, `galileo-logic`, `galileo-agent`, `galileo-pipeline`, `omlx-pipeline`, `galileo-math`, `omlx-math`. It injects `--backend`/`--suite` defaults unless the user passed those flags. Runner modules also run via `python3 -m modules.<name>` from the repo root.
+- `modules/` is the Python package holding all benchmark runners and shared support modules. Intra-package imports are relative (`from .benchmark_paths import ...`).
+- `tests/` contains offline unit tests plus the live Galileo smoke test.
 - `config/` contains model lists, active presets, and preset snapshots.
 - `test_definitions/` contains static JSON review cases per language (`<lang>.json`), the tool-use suite (`tool_use.json`, spec `docs/TOOLS_USE_TEST_SPEC.md`), and the logic suite (`logic.json`, spec `docs/LOGIC_TEST_SPEC.md`).
 - `results/` contains current machine-generated benchmark artifacts grouped by benchmark.
@@ -15,17 +16,17 @@
 
 ## Verification
 
-Run offline unit tests:
+Run offline unit tests from the repo root:
 
 ```bash
-python3 -m unittest test_benchmark_galileo_reviews.py test_benchmark_opencode_agents.py test_benchmark_omlx_reviews.py test_benchmark_agent_tools.py test_bench.py
+python3 -m unittest discover -s tests -t .
 ```
 
 Run static checks:
 
 ```bash
-ruff check benchmark_paths.py bench.py benchmark_galileo_reviews.py benchmark_omlx_reviews.py benchmark_opencode_agents.py benchmark_agent_tools.py math_bench_galileo_reviews.py judge_ab_test.py test_benchmark_galileo_reviews.py test_benchmark_omlx_reviews.py test_benchmark_opencode_agents.py test_benchmark_agent_tools.py test_bench.py test_galileo_models.py review_definitions.py
-mypy benchmark_paths.py bench.py benchmark_galileo_reviews.py benchmark_omlx_reviews.py benchmark_opencode_agents.py benchmark_agent_tools.py math_bench_galileo_reviews.py judge_ab_test.py test_benchmark_galileo_reviews.py test_benchmark_omlx_reviews.py test_benchmark_opencode_agents.py test_benchmark_agent_tools.py test_bench.py test_galileo_models.py review_definitions.py
+ruff check modules/ tests/ bin/
+mypy modules/benchmark_paths.py modules/benchmark_galileo_reviews.py modules/benchmark_omlx_reviews.py modules/benchmark_agent_tools.py modules/benchmark_opencode_agents.py modules/math_bench_galileo_reviews.py modules/judge_ab_test.py modules/review_definitions.py tests/ bin/
 ```
 
-`test_galileo_models.py` is a live Galileo integration test and is intentionally excluded from the offline unit-test command.
+`tests/test_galileo_models.py` is a live Galileo integration test and is intentionally excluded from the offline unit-test command. `modules/math_tasks.py` is a stdlib demo script and stays outside the mypy gate.

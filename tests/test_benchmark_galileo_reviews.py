@@ -9,9 +9,9 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-import benchmark_galileo_reviews as benchmark
-import benchmark_paths as paths
-import math_bench_galileo_reviews as math_benchmark
+from modules import benchmark_galileo_reviews as benchmark
+from modules import benchmark_paths as paths
+from modules import math_bench_galileo_reviews as math_benchmark
 
 
 def metrics(response: str) -> benchmark.ResponseMetrics:

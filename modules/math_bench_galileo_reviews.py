@@ -1,4 +1,4 @@
-"""Advanced math benchmark for Galileo models with a sharp-answer harness."""
+"""Advanced math benchmark for Galileo or oMLX models with a sharp-answer harness."""
 
 from __future__ import annotations
 
@@ -24,30 +24,36 @@ from pathlib import Path
 from statistics import mean
 from typing import Any, Final
 
-from benchmark_paths import (
+from . import benchmark_omlx_reviews as omlx
+from .benchmark_paths import (
     CONFIG_DIR,
     GALILEO_MATH_ARCHIVES_DIR,
     GALILEO_MATH_RESULTS_DIR,
     LOGS_DIR,
+    OMLX_MATH_ARCHIVES_DIR,
+    OMLX_MATH_RESULTS_DIR,
     ensure_parent_directories,
 )
 
-BASE_URL: Final = os.getenv(
-    "GALILEO_BASE_URL", "http://127.0.0.1:8080/v1"
-).rstrip("/")
-API_KEY: Final = os.getenv("GALILEO_API_KEY", "sk-noauth")
-TIMEOUT_SECONDS: Final = float(os.getenv("GALILEO_TIMEOUT_SECONDS", "300"))
-MAX_TOKENS: Final = int(os.getenv("GALILEO_MAX_TOKENS", "700"))
-MAX_RETRIES: Final = int(os.getenv("GALILEO_MAX_RETRIES", "1"))
-PREDICT_TIMEOUT_MS: Final = int(os.getenv("GALILEO_PREDICT_TIMEOUT_MS", "300000"))
-THINKING_BUDGET_TOKENS: Final = int(os.getenv("GALILEO_THINKING_BUDGET", "256"))
-START_MODEL: Final = os.getenv("GALILEO_START_MODEL", "")
-RETRY_FAILURES: Final = os.getenv("GALILEO_RETRY_FAILURES", "0").casefold() in {
+BACKENDS: Final = ("galileo", "omlx")
+BACKEND_NAMES: Final = {"galileo": "Galileo", "omlx": "oMLX"}
+
+# Rebound by resolve_backend() once --backend is known; defaults are Galileo.
+BACKEND = "galileo"
+BASE_URL = os.getenv("GALILEO_BASE_URL", "http://127.0.0.1:8080/v1").rstrip("/")
+API_KEY = os.getenv("GALILEO_API_KEY", "sk-noauth")
+TIMEOUT_SECONDS = float(os.getenv("GALILEO_TIMEOUT_SECONDS", "300"))
+MAX_TOKENS = int(os.getenv("GALILEO_MAX_TOKENS", "700"))
+MAX_RETRIES = int(os.getenv("GALILEO_MAX_RETRIES", "1"))
+PREDICT_TIMEOUT_MS = int(os.getenv("GALILEO_PREDICT_TIMEOUT_MS", "300000"))
+THINKING_BUDGET_TOKENS = int(os.getenv("GALILEO_THINKING_BUDGET", "256"))
+START_MODEL = os.getenv("GALILEO_START_MODEL", "")
+RETRY_FAILURES = os.getenv("GALILEO_RETRY_FAILURES", "0").casefold() in {
     "1",
     "true",
     "yes",
 }
-PRESETS_PATH: Final = os.getenv("GALILEO_PRESETS", "")
+PRESETS_PATH = os.getenv("GALILEO_PRESETS", "")
 PRESET_SAMPLING_KEYS: Final[dict[str, str]] = {
     "temp": "temperature",
     "top-p": "top_p",
@@ -57,19 +63,20 @@ PRESET_SAMPLING_KEYS: Final[dict[str, str]] = {
     "presence-penalty": "presence_penalty",
     "frequency-penalty": "frequency_penalty",
 }
-NO_THINKING_MODELS: Final[frozenset[str]] = frozenset()
-NO_SCHEMA_MODELS: Final[frozenset[str]] = frozenset()
-RESULTS_PATH: Final = Path(
+NO_THINKING_MODELS: frozenset[str] = frozenset()
+NO_SCHEMA_MODELS: frozenset[str] = frozenset()
+RESULTS_PATH = Path(
     os.getenv(
         "GALILEO_MATH_RESULTS",
         str(GALILEO_MATH_RESULTS_DIR / "galileo-math-results.json"),
     )
 )
-CSV_PATH: Final = RESULTS_PATH.with_suffix(".csv")
-REPORT_PATH: Final = RESULTS_PATH.with_suffix(".md")
-LOG_PATH: Final = Path(
+CSV_PATH = RESULTS_PATH.with_suffix(".csv")
+REPORT_PATH = RESULTS_PATH.with_suffix(".md")
+LOG_PATH = Path(
     os.getenv("GALILEO_MATH_LOG", str(LOGS_DIR / "galileo-math.log"))
 )
+MATH_ARCHIVES_DIR = GALILEO_MATH_ARCHIVES_DIR
 SCHEMA_VERSION: Final = 2
 PROMPT_VERSION: Final = 2
 LOGGER: Final = logging.getLogger("galileo-math-benchmark")
@@ -88,7 +95,58 @@ def load_models(path: Path | None = None) -> tuple[str, ...]:
     return tuple(data)
 
 
-MODELS: Final[tuple[str, ...]] = load_models()
+MODELS: tuple[str, ...] = load_models()
+
+
+def resolve_backend(backend: str) -> None:
+    """Rebind endpoint, dialect, model, and artifact globals for --backend.
+
+    The module-level defaults already describe Galileo, so only the oMLX
+    branch needs to rebind: the oMLX request dialect, model list, artifact
+    paths, and the env-driven no-thinking/no-schema model sets.
+    """
+    global BACKEND, BASE_URL, API_KEY, TIMEOUT_SECONDS, MAX_TOKENS, MAX_RETRIES
+    global PREDICT_TIMEOUT_MS, THINKING_BUDGET_TOKENS, START_MODEL
+    global RETRY_FAILURES, PRESETS_PATH, NO_THINKING_MODELS, NO_SCHEMA_MODELS
+    global RESULTS_PATH, CSV_PATH, REPORT_PATH, LOG_PATH, MATH_ARCHIVES_DIR
+    global MODELS
+    BACKEND = backend
+    if backend != "omlx":
+        return
+    BASE_URL = omlx.BASE_URL
+    API_KEY = omlx.API_KEY
+    TIMEOUT_SECONDS = omlx.TIMEOUT_SECONDS
+    MAX_TOKENS = int(os.getenv("OMLX_MAX_TOKENS", "700"))
+    MAX_RETRIES = int(os.getenv("OMLX_MAX_RETRIES", "1"))
+    PREDICT_TIMEOUT_MS = int(os.getenv("OMLX_PREDICT_TIMEOUT_MS", "300000"))
+    THINKING_BUDGET_TOKENS = omlx.THINKING_BUDGET_TOKENS
+    START_MODEL = omlx.START_MODEL
+    RETRY_FAILURES = omlx.RETRY_FAILURES
+    PRESETS_PATH = omlx.PRESETS_PATH
+    NO_THINKING_MODELS = omlx.NO_THINKING_MODELS
+    NO_SCHEMA_MODELS = omlx.NO_SCHEMA_MODELS
+    RESULTS_PATH = Path(
+        os.getenv(
+            "OMLX_MATH_RESULTS",
+            str(OMLX_MATH_RESULTS_DIR / "omlx-math-results.json"),
+        )
+    )
+    CSV_PATH = RESULTS_PATH.with_suffix(".csv")
+    REPORT_PATH = RESULTS_PATH.with_suffix(".md")
+    LOG_PATH = Path(
+        os.getenv("OMLX_MATH_LOG", str(LOGS_DIR / "omlx-math.log"))
+    )
+    MATH_ARCHIVES_DIR = OMLX_MATH_ARCHIVES_DIR
+    MODELS = load_models(
+        Path(os.getenv("OMLX_MODELS", str(CONFIG_DIR / "models-omlx.json")))
+    )
+
+
+def _load_backend_presets(path: Path) -> dict[str, dict[str, Any]]:
+    """Parse a preset file with the active backend's key dialect."""
+    if BACKEND == "omlx":
+        return omlx.load_presets(path)
+    return load_presets(path)
 
 
 @dataclass(frozen=True, slots=True)
@@ -315,12 +373,43 @@ class GalileoClient:
             "temperature": 0,
             "max_tokens": MAX_TOKENS,
             "stream": False,
-            "timings_per_token": True,
-            "t_max_predict_ms": PREDICT_TIMEOUT_MS,
-            "thinking_budget_tokens": 0 if disable_thinking else THINKING_BUDGET_TOKENS,
             "chat_template_kwargs": {"enable_thinking": not disable_thinking},
         }
-        if model not in NO_SCHEMA_MODELS:
+        if BACKEND == "galileo":
+            # llama.cpp dialect: native timing fields and the budget spelling.
+            payload["timings_per_token"] = True
+            payload["t_max_predict_ms"] = PREDICT_TIMEOUT_MS
+            payload["thinking_budget_tokens"] = (
+                0 if disable_thinking else THINKING_BUDGET_TOKENS
+            )
+        else:
+            payload["thinking_budget"] = (
+                0 if disable_thinking else THINKING_BUDGET_TOKENS
+            )
+        sampling = self._presets.get(model.casefold(), {})
+        if sampling:
+            payload.update(sampling)
+        elif BACKEND == "omlx" and ":" in model:
+            # oMLX "model:profile" aliases carry tuned server-side sampling.
+            # Galileo ":TAG" aliases are router names — keep temperature.
+            payload.pop("temperature")
+        if "enable_thinking" in payload:
+            thinking_on = bool(payload.pop("enable_thinking"))
+            payload["chat_template_kwargs"]["enable_thinking"] = thinking_on
+            if not thinking_on:
+                budget_key = (
+                    "thinking_budget_tokens"
+                    if BACKEND == "galileo"
+                    else "thinking_budget"
+                )
+                payload[budget_key] = 0
+        thinking_on = bool(payload["chat_template_kwargs"]["enable_thinking"])
+        # oMLX emits an empty array when thinking mode meets a response_format
+        # grammar, so thinking runs must parse the answer from plain text.
+        use_schema = model not in NO_SCHEMA_MODELS and not (
+            BACKEND == "omlx" and thinking_on
+        )
+        if use_schema:
             payload["response_format"] = {
                 "type": "json_schema",
                 "json_schema": {
@@ -336,9 +425,6 @@ class GalileoClient:
                     },
                 },
             }
-        sampling = self._presets.get(model.casefold(), {})
-        if sampling:
-            payload.update(sampling)
         LOGGER.info("Request started model=%s case=%s", model, case.case_id)
         started = time.perf_counter()
         response = self._request_with_retry("POST", "/chat/completions", payload)
@@ -363,16 +449,26 @@ class GalileoClient:
         completion_tokens = _as_int(
             timings.get("predicted_n"), usage.get("completion_tokens")
         )
+        # llama.cpp reports under `timings`; oMLX reports under `usage` with
+        # durations in seconds and rates under different key names.
+        prompt_ms = _as_float(timings.get("prompt_ms")) or (
+            _as_float(usage.get("prompt_eval_duration")) * 1000
+        )
+        generation_ms = _as_float(timings.get("predicted_ms")) or (
+            _as_float(usage.get("generation_duration")) * 1000
+        )
         metrics = ResponseMetrics(
             text=text,
             reasoning_text=reasoning_text,
             elapsed_seconds=elapsed,
             prompt_tokens=prompt_tokens,
             completion_tokens=completion_tokens,
-            prompt_ms=_as_float(timings.get("prompt_ms")),
-            generation_ms=_as_float(timings.get("predicted_ms")),
-            prompt_tokens_per_second=_as_float(timings.get("prompt_per_second")),
-            output_tokens_per_second=_as_float(timings.get("predicted_per_second")),
+            prompt_ms=prompt_ms,
+            generation_ms=generation_ms,
+            prompt_tokens_per_second=_as_float(timings.get("prompt_per_second"))
+            or _as_float(usage.get("prompt_tokens_per_second")),
+            output_tokens_per_second=_as_float(timings.get("predicted_per_second"))
+            or _as_float(usage.get("generation_tokens_per_second")),
         )
         LOGGER.info(
             "Request finished model=%s case=%s elapsed=%.2fs "
@@ -631,28 +727,31 @@ def report_payload(
     presets_path: str = "",
 ) -> dict[str, Any]:
     """Build the detailed machine-readable benchmark report."""
+    parameters: dict[str, Any] = {
+        "backend": BACKEND,
+        "models": list(MODELS),
+        "math_cases": len(MATH_CASES),
+        "temperature": 0,
+        "max_tokens": MAX_TOKENS,
+        "request_timeout_seconds": TIMEOUT_SECONDS,
+        "thinking_budget_tokens": THINKING_BUDGET_TOKENS,
+        "no_thinking_models": sorted(NO_THINKING_MODELS),
+        "no_schema_models": sorted(NO_SCHEMA_MODELS),
+        "start_model": START_MODEL or None,
+        "retry_failures": RETRY_FAILURES,
+        "max_retries": MAX_RETRIES,
+        "parallel_requests": 1,
+        "prompt_version": PROMPT_VERSION,
+        "response_format": "strict JSON object with one non-empty answer field",
+        "presets_path": presets_path or None,
+    }
+    if BACKEND == "galileo":
+        parameters["prediction_timeout_ms"] = PREDICT_TIMEOUT_MS
     return {
         "schema_version": SCHEMA_VERSION,
         "generated_at": datetime.now(UTC).isoformat(),
         "base_url": BASE_URL,
-        "benchmark_parameters": {
-            "models": list(MODELS),
-            "math_cases": len(MATH_CASES),
-            "temperature": 0,
-            "max_tokens": MAX_TOKENS,
-            "request_timeout_seconds": TIMEOUT_SECONDS,
-            "prediction_timeout_ms": PREDICT_TIMEOUT_MS,
-            "thinking_budget_tokens": THINKING_BUDGET_TOKENS,
-            "no_thinking_models": sorted(NO_THINKING_MODELS),
-            "no_schema_models": sorted(NO_SCHEMA_MODELS),
-            "start_model": START_MODEL or None,
-            "retry_failures": RETRY_FAILURES,
-            "max_retries": MAX_RETRIES,
-            "parallel_requests": 1,
-            "prompt_version": PROMPT_VERSION,
-            "response_format": "strict JSON object with one non-empty answer field",
-            "presets_path": presets_path or None,
-        },
+        "benchmark_parameters": parameters,
         "model_parameters": model_parameters,
         "summaries": summarize(results),
         "results": [asdict(result) for result in results],
@@ -700,7 +799,7 @@ def write_markdown(payload: dict[str, Any]) -> None:
         summaries.items(), key=lambda item: item[1]["overall_score"], reverse=True
     )
     lines = [
-        "# Galileo Math Benchmark",
+        f"# {BACKEND_NAMES[BACKEND]} Math Benchmark",
         "",
         f"Generated: `{payload['generated_at']}`",
         "",
@@ -812,7 +911,7 @@ def archive_reports() -> Path | None:
     )
     if not existing_paths:
         return None
-    archive_directory = GALILEO_MATH_ARCHIVES_DIR / datetime.now(UTC).strftime(
+    archive_directory = MATH_ARCHIVES_DIR / datetime.now(UTC).strftime(
         "%Y%m%dT%H%M%SZ"
     )
     archive_directory.mkdir(parents=True, exist_ok=False)
@@ -863,22 +962,37 @@ def print_summary(results: list[CaseResult]) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Run or resume all math cases with one active Galileo model at a time."""
+    """Run or resume all math cases with one active model at a time."""
     parser = argparse.ArgumentParser(
-        description="Advanced math benchmark for Galileo models."
+        description="Advanced math benchmark for Galileo or oMLX models."
+    )
+    parser.add_argument(
+        "--backend",
+        choices=BACKENDS,
+        default="galileo",
+        help="Serving stack to benchmark: galileo (llama.cpp) or omlx (local MLX)",
     )
     parser.add_argument(
         "--presets",
         nargs="?",
-        const=str(CONFIG_DIR / "presets.ini"),
-        default=PRESETS_PATH,
-        help="Load per-model sampling presets from an INI file",
+        const="__default__",
+        default=None,
+        help="Load per-model sampling presets from an INI file "
+        "(bare flag uses the backend's default preset file)",
     )
     args = parser.parse_args(argv if argv is not None else sys.argv[1:])
+    resolve_backend(args.backend)
     presets_path = args.presets
+    if presets_path == "__default__":
+        presets_path = str(
+            CONFIG_DIR
+            / ("presets-omlx.ini" if BACKEND == "omlx" else "presets.ini")
+        )
+    elif presets_path is None:
+        presets_path = PRESETS_PATH
     presets: dict[str, dict[str, Any]] = {}
     if presets_path:
-        presets = load_presets(Path(presets_path))
+        presets = _load_backend_presets(Path(presets_path))
     archive_directory: Path | None = None
     if RETRY_FAILURES:
         try:
@@ -898,7 +1012,9 @@ def main(argv: list[str] | None = None) -> int:
     }
     if START_MODEL:
         if START_MODEL not in MODELS:
-            LOGGER.error("GALILEO_START_MODEL is not configured: %s", START_MODEL)
+            LOGGER.error(
+                "%s_START_MODEL is not configured: %s", BACKEND.upper(), START_MODEL
+            )
             return 1
         active_models = MODELS[MODELS.index(START_MODEL) :]
     else:
@@ -914,7 +1030,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         advertised_models = client.models()
     except (BenchmarkRequestError, TypeError) as error:
-        LOGGER.error("Cannot list Galileo models: %s", error)
+        LOGGER.error("Cannot list %s models: %s", BACKEND, error)
         return 1
     missing = set(MODELS) - set(advertised_models)
     if missing:

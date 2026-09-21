@@ -12,7 +12,10 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Final
 
-from benchmark_paths import MODEL_SMOKE_RESULTS_DIR, ensure_parent_directories
+from modules.benchmark_paths import (
+    MODEL_SMOKE_RESULTS_DIR,
+    ensure_parent_directories,
+)
 
 BASE_URL: Final = os.getenv(
     "GALILEO_BASE_URL", "http://127.0.0.1:8080/v1"

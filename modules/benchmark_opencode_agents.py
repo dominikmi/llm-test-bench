@@ -18,10 +18,10 @@ from pathlib import Path
 from statistics import mean
 from typing import Any, Final
 
-import benchmark_galileo_reviews as galileo
-from benchmark_galileo_reviews import (
+from . import benchmark_galileo_reviews as galileo
+from . import benchmark_omlx_reviews as omlx
+from .benchmark_galileo_reviews import (
     JUDGE_MODEL,
-    MODELS,
     PROMPT_VERSION,
     JudgeClient,
     ResponseMetrics,
@@ -29,14 +29,15 @@ from benchmark_galileo_reviews import (
     build_review_prompt,
     score_response,
 )
-from benchmark_paths import (
+from .benchmark_paths import (
     LOGS_DIR,
     OPENCODE_AGENT_RESULTS_DIR,
+    OPENCODE_OMLX_RESULTS_DIR,
     PROJECT_ROOT,
     TEST_DEFINITIONS_DIR,
     ensure_parent_directories,
 )
-from review_definitions import (
+from .review_definitions import (
     LANGUAGE_DISPLAY_NAMES,
     LANGUAGE_EXTENSIONS,
     available_languages,
@@ -81,14 +82,39 @@ def _serena_command(workspace: Path) -> tuple[str, ...]:
     )
 
 
+# Rebound by resolve_backend() once --backend is known; defaults are Galileo.
+BACKEND = "galileo"
+PROVIDER = "galileo"
+MODELS = galileo.MODELS
+AGENT_RESULTS_DIR = OPENCODE_AGENT_RESULTS_DIR
+
+
+def resolve_backend(backend: str) -> None:
+    """Rebind the provider prefix, model list, and artifact directory.
+
+    PROVIDER names the OpenCode provider from the user's opencode.json
+    (``<provider>/<model>`` on the command line); OPENCODE_PROVIDER overrides
+    it when the configured provider name differs from the backend name.
+    """
+    global BACKEND, PROVIDER, MODELS, AGENT_RESULTS_DIR
+    BACKEND = backend
+    PROVIDER = os.getenv("OPENCODE_PROVIDER", backend)
+    if backend == "omlx":
+        MODELS = omlx.MODELS
+        AGENT_RESULTS_DIR = OPENCODE_OMLX_RESULTS_DIR
+    else:
+        MODELS = galileo.MODELS
+        AGENT_RESULTS_DIR = OPENCODE_AGENT_RESULTS_DIR
+
+
 # Rebound by resolve_language() once --lang is known.
 WORKSPACE = SUITE_ROOT / "workspaces" / "review-project"
 SERENA_COMMAND = _serena_command(WORKSPACE)
-RESULTS_PATH = OPENCODE_AGENT_RESULTS_DIR / "opencode-agent-results.json"
-CSV_PATH = OPENCODE_AGENT_RESULTS_DIR / "opencode-agent-results.csv"
-REPORT_PATH = OPENCODE_AGENT_RESULTS_DIR / "opencode-agent-results.md"
+RESULTS_PATH = AGENT_RESULTS_DIR / "opencode-agent-results.json"
+CSV_PATH = AGENT_RESULTS_DIR / "opencode-agent-results.csv"
+REPORT_PATH = AGENT_RESULTS_DIR / "opencode-agent-results.md"
 LOG_PATH = LOGS_DIR / "opencode-agent-results.log"
-EVENTS_PATH = OPENCODE_AGENT_RESULTS_DIR / "opencode-agent-events.jsonl"
+EVENTS_PATH = AGENT_RESULTS_DIR / "opencode-agent-events.jsonl"
 LANGUAGE = "python"
 CASE_TIMEOUT_SECONDS: Final = float(os.getenv("OPENCODE_CASE_TIMEOUT", "360"))
 TERMINATION_GRACE_SECONDS: Final = float(os.getenv("OPENCODE_TERMINATION_GRACE", "10"))
@@ -107,11 +133,11 @@ def resolve_language(language: str) -> None:
     suffix = language_suffix(language)
     WORKSPACE = SUITE_ROOT / "workspaces" / f"review-project{suffix}"
     SERENA_COMMAND = _serena_command(WORKSPACE)
-    RESULTS_PATH = OPENCODE_AGENT_RESULTS_DIR / f"opencode-agent-results{suffix}.json"
-    CSV_PATH = OPENCODE_AGENT_RESULTS_DIR / f"opencode-agent-results{suffix}.csv"
-    REPORT_PATH = OPENCODE_AGENT_RESULTS_DIR / f"opencode-agent-results{suffix}.md"
+    RESULTS_PATH = AGENT_RESULTS_DIR / f"opencode-agent-results{suffix}.json"
+    CSV_PATH = AGENT_RESULTS_DIR / f"opencode-agent-results{suffix}.csv"
+    REPORT_PATH = AGENT_RESULTS_DIR / f"opencode-agent-results{suffix}.md"
     LOG_PATH = LOGS_DIR / f"opencode-agent-results{suffix}.log"
-    EVENTS_PATH = OPENCODE_AGENT_RESULTS_DIR / f"opencode-agent-events{suffix}.jsonl"
+    EVENTS_PATH = AGENT_RESULTS_DIR / f"opencode-agent-events{suffix}.jsonl"
     LANGUAGE = language
     if language != "python":
         CASES = load_case_definitions(
@@ -284,7 +310,7 @@ def build_command(
         "--agent",
         "benchmark-reviewer",
         "--model",
-        f"galileo/{model}",
+        f"{PROVIDER}/{model}",
         "--dir",
         str(WORKSPACE),
         "--title",
@@ -771,6 +797,8 @@ def save_reports(results: list[AgentCaseResult], sessions: dict[str, str]) -> No
             ],
             "retry_failures": RETRY_FAILURES,
             "preflight_cases_per_model_per_mode": 1,
+            "backend": BACKEND,
+            "provider": PROVIDER,
             "models": list(MODELS),
             "cases_per_model": len(CASES),
             "content_weight": 0.8,
@@ -964,12 +992,19 @@ def main(argv: list[str] | None = None) -> int:
         )
     )
     parser.add_argument(
+        "--backend",
+        choices=("galileo", "omlx"),
+        default="galileo",
+        help="OpenCode provider backend: galileo (llama.cpp router) or omlx (local MLX)",
+    )
+    parser.add_argument(
         "--lang",
         default="python",
         choices=available_languages() or ["python"],
         help="Language whose static case definitions to benchmark",
     )
     args = parser.parse_args(argv if argv is not None else sys.argv[1:])
+    resolve_backend(args.backend)
     try:
         resolve_language(args.lang)
     except (FileNotFoundError, ValueError) as error:
@@ -985,9 +1020,10 @@ def main(argv: list[str] | None = None) -> int:
     }
     runner = OpenCodeRunner()
     LOGGER.info(
-        "Agent benchmark started lang=%s modes=%s models=%d cases=%d resumed=%d "
-        "MCP=serena,headroom pure=true steps=%d retry_failures=%s",
+        "Agent benchmark started lang=%s modes=%s provider=%s models=%d cases=%d "
+        "resumed=%d MCP=serena,headroom pure=true steps=%d retry_failures=%s",
         LANGUAGE,
+        PROVIDER,
         ",".join(SESSION_MODES),
         len(MODELS),
         len(CASES),

@@ -14,7 +14,7 @@ from typing import Final, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-from benchmark_paths import TEST_DEFINITIONS_DIR
+from .benchmark_paths import TEST_DEFINITIONS_DIR
 
 
 @dataclass(frozen=True, slots=True)

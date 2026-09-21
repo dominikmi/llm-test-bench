@@ -10,8 +10,8 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock, patch
 
-import benchmark_omlx_reviews as benchmark
-import benchmark_paths as paths
+from modules import benchmark_omlx_reviews as benchmark
+from modules import benchmark_paths as paths
 
 
 def sse_stream(chunks: list[dict[str, Any]], done: bool = True) -> io.BytesIO:
@@ -192,7 +192,7 @@ class TestConfigurableJudge(unittest.TestCase):
         response = MagicMock()
         response.__enter__.return_value = body
         with patch(
-            "benchmark_omlx_reviews.urllib.request.urlopen",
+            "modules.benchmark_omlx_reviews.urllib.request.urlopen",
             return_value=response,
         ) as mock_open:
             parsed = judge._request({"model": "critic-ornith:LATEST"})
@@ -310,7 +310,7 @@ class TestCaseDefinitions(unittest.TestCase):
 
     def test_python_definitions_match_galileo_cases(self) -> None:
         """Guard test_definitions/python.json against drifting from CASES."""
-        import benchmark_galileo_reviews as galileo
+        from modules import benchmark_galileo_reviews as galileo
 
         loaded = benchmark.load_case_definitions(
             paths.TEST_DEFINITIONS_DIR / "python.json"

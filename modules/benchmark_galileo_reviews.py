@@ -23,7 +23,7 @@ from pathlib import Path
 from statistics import mean
 from typing import Any, Final
 
-from benchmark_paths import (
+from .benchmark_paths import (
     CONFIG_DIR,
     GALILEO_REVIEW_ARCHIVES_DIR,
     GALILEO_REVIEW_RESULTS_DIR,
@@ -31,7 +31,7 @@ from benchmark_paths import (
     TEST_DEFINITIONS_DIR,
     ensure_parent_directories,
 )
-from review_definitions import (
+from .review_definitions import (
     ExpectedFinding,
     ReviewCase,
     available_languages,
