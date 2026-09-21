@@ -341,7 +341,8 @@ class TestCaseDefinitions(unittest.TestCase):
 
     def test_language_files_parse_and_tag_cases(self) -> None:
         """Every shipped language file yields language-tagged valid cases."""
-        for path in sorted(paths.TEST_DEFINITIONS_DIR.glob("*.json")):
+        for language in benchmark.available_languages():
+            path = paths.TEST_DEFINITIONS_DIR / f"{language}.json"
             cases = benchmark.load_case_definitions(path)
             with self.subTest(language=path.stem):
                 self.assertGreaterEqual(len(cases), 10)

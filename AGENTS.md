@@ -17,14 +17,14 @@
 Run offline unit tests:
 
 ```bash
-python3 -m unittest test_benchmark_galileo_reviews.py test_benchmark_opencode_agents.py test_benchmark_omlx_reviews.py
+python3 -m unittest test_benchmark_galileo_reviews.py test_benchmark_opencode_agents.py test_benchmark_omlx_reviews.py test_benchmark_agent_tools.py
 ```
 
 Run static checks:
 
 ```bash
-ruff check benchmark_paths.py benchmark_galileo_reviews.py benchmark_omlx_reviews.py benchmark_opencode_agents.py math_bench_galileo_reviews.py judge_ab_test.py test_benchmark_galileo_reviews.py test_benchmark_omlx_reviews.py test_benchmark_opencode_agents.py test_galileo_models.py review_definitions.py
-mypy benchmark_paths.py benchmark_galileo_reviews.py benchmark_omlx_reviews.py benchmark_opencode_agents.py math_bench_galileo_reviews.py judge_ab_test.py test_benchmark_galileo_reviews.py test_benchmark_omlx_reviews.py test_benchmark_opencode_agents.py test_galileo_models.py review_definitions.py
+ruff check benchmark_paths.py benchmark_galileo_reviews.py benchmark_omlx_reviews.py benchmark_opencode_agents.py benchmark_agent_tools.py math_bench_galileo_reviews.py judge_ab_test.py test_benchmark_galileo_reviews.py test_benchmark_omlx_reviews.py test_benchmark_opencode_agents.py test_benchmark_agent_tools.py test_galileo_models.py review_definitions.py
+mypy benchmark_paths.py benchmark_galileo_reviews.py benchmark_omlx_reviews.py benchmark_opencode_agents.py benchmark_agent_tools.py math_bench_galileo_reviews.py judge_ab_test.py test_benchmark_galileo_reviews.py test_benchmark_omlx_reviews.py test_benchmark_opencode_agents.py test_benchmark_agent_tools.py test_galileo_models.py review_definitions.py
 ```
 
 `test_galileo_models.py` is a live Galileo integration test and is intentionally excluded from the offline unit-test command.

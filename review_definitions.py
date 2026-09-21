@@ -87,7 +87,13 @@ def available_languages(
     directory: Path = TEST_DEFINITIONS_DIR,
 ) -> tuple[str, ...]:
     """List language names for which a static definition file exists."""
-    return tuple(sorted(path.stem for path in directory.glob("*.json")))
+    return tuple(
+        sorted(
+            path.stem
+            for path in directory.glob("*.json")
+            if path.stem in LANGUAGE_EXTENSIONS
+        )
+    )
 
 
 def language_suffix(language: str) -> str:

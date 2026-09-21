@@ -20,6 +20,8 @@ GALILEO_REVIEW_ARCHIVES_DIR: Final = ARCHIVES_DIR / "galileo-review"
 GALILEO_MATH_ARCHIVES_DIR: Final = ARCHIVES_DIR / "galileo-math"
 OMLX_REVIEW_RESULTS_DIR: Final = RESULTS_DIR / "omlx-review"
 OMLX_REVIEW_ARCHIVES_DIR: Final = ARCHIVES_DIR / "omlx-review"
+OMLX_TOOLS_RESULTS_DIR: Final = RESULTS_DIR / "omlx-tools"
+OMLX_TOOLS_ARCHIVES_DIR: Final = ARCHIVES_DIR / "omlx-tools"
 TEST_DEFINITIONS_DIR: Final = PROJECT_ROOT / "test_definitions"
 
 
