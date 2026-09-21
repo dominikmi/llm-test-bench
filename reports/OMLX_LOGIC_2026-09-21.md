@@ -1,156 +1,176 @@
 # oMLX Logic Reasoning Benchmark — 2026-09-21
 
-First run of the logic suite (`test_definitions/logic.json`, spec
-`docs/LOGIC_TEST_SPEC.md`): 6 models × 21 cases across 10 competencies —
-deduction, formal validity, constraint scheduling, elimination,
-underdetermination, state simulation, causal intervention, self-reference,
-symbol manipulation, constrained planning. Single-turn, tool-free, judge-free:
-each case requires a structured JSON answer graded on typed fields (exact,
-normalized, set/map partial credit).
+Logic suite (`test_definitions/logic.json`, spec `docs/LOGIC_TEST_SPEC.md`):
+6 models × 21 cases across 10 competencies — deduction, formal validity,
+constraint scheduling, elimination, underdetermination, state simulation,
+causal intervention, self-reference, symbol manipulation, constrained
+planning. Single-turn, tool-free, judge-free: structured JSON answers graded
+on typed fields (exact, normalized, set/map partial credit).
 
-**Run configuration (matters — see caveats):** `max_tokens=1024` default for
-all models **except Bonsai**, whose preset supplies `max_tokens=4096` and
-`reasoning_effort=medium`. Non-streaming, temperature per presets.
+**Two runs, merged on equal budget.** Run 1 used the `max_tokens=1024`
+default for all models except Bonsai (preset: 4096 + `reasoning_effort=
+medium`) — that run is preserved in `omlx-logic-results.json` and analyzed
+below as the budget-confounded baseline. Run 2 (`omlx-logic-4096-results.
+json`) re-ran the five non-Bonsai models at `OMLX_MAX_TOKENS=4096`. The
+leaderboard below combines Bonsai's run-1 results (already at 4096) with the
+five run-2 results — all six at an effective 4096-token ceiling.
 
-## Leaderboard
+## Leaderboard (equal 4096-token budget)
 
-| Rank | Model | Quality | JSON ans | Tok/pt | Mean turn s | Eff. out tok/s † | Truncated fails ‡ | Genuine fails |
+| Rank | Model | Quality | JSON ans | Tok/pt | Mean turn s | Eff. out tok/s † | Cap hits | Genuine fails ‡ |
 |---:|---|---:|---:|---:|---:|---:|---:|---:|
+| 1 | Tiel-Coder-35B-A3B-MLX-oQ4e-MTP | 97.62 | 0.95 | 3.3 | 5.54 | 58.4 | 0 | 1 |
 | 1 | Ternary-Bonsai-2-27B:bonsai2-coder | 97.62 | 0.95 | 4.2 | 15.81 | 25.8 | 0 | 1 |
-| 2 | Tiel-Coder-35B-A3B-MLX-oQ4e-MTP | 95.24 | 0.95 | 3.6 | 5.91 | 58.1 | 0 | 1 |
-| 3 | Qwen3.6-35B-Claude-Distilled-MLX-oQ4-MTP | 89.05 | 0.91 | 3.8 | 4.72 | 71.7 | 2 | 1 |
-| 4 | Ornith-1.5-35B-A3B-MLX-4bit | 76.19 | 0.76 | 8.1 | 7.62 | 81.3 | 4 | 2 |
-| 5 | Devstral-Small-2-24B:devstral-code | 61.90 | 0.95 | 2.8 | 15.03 | 11.5 | 1 | 8 |
-| 6 | gemma-4-26B-A4B-it-QAT-MLX-4bit | 59.52 | 0.62 | 13.2 | 12.31 | 63.8 | 8 | 1 |
+| 3 | Ornith-1.5-35B-A3B-MLX-4bit | 91.27 | 0.95 | 7.3 | 8.09 | 82.1 | 0 | 3 |
+| 4 | Qwen3.6-35B-Claude-Distilled-MLX-oQ4-MTP | 88.89 | 1.00 | 2.9 | 3.72 | 69.9 | 0 | 4 |
+| 5 | gemma-4-26B-A4B-it-QAT-MLX-4bit | 88.10 | 0.91 | 18.2 | 25.70 | 62.5 | **2** | 1 |
+| 6 | Devstral-Small-2-24B:devstral-code | 69.05 | 1.00 | 1.9 | 11.67 | 11.1 | 0 | 8 |
 
-*† Derived: `completion_tokens / elapsed_seconds` — oMLX does not emit
-per-second rates on non-streaming responses, and elapsed includes prompt
-evaluation, so these understate raw decode speed. Devstral's 11.5 is
-wall-clock reality (316 s total, 3 627 tokens).*
+*† Derived: `completion_tokens / elapsed_seconds` — oMLX omits per-second
+rates on non-streaming responses, and elapsed includes prompt evaluation.
+‡ Sub-100 results that finished under the cap with a parseable answer —
+attributable to reasoning, not truncation. For Bonsai, run-1 values.*
 
-*‡ `completion_tokens` hit the 1024 cap (4096 for Bonsai) on a case scored
-below 100. "Genuine fails" = sub-100 results that finished under the cap with
-a parseable JSON answer — attributable to reasoning, not truncation.*
+`CALL EFF`/`TURN EFF`/`WASTE` are structurally 1.000/0.000 for all models —
+no tools exist in this suite, so there is nothing to waste. Omitted.
 
-The `CALL EFF`, `TURN EFF`, `WASTE` columns are structurally 1.000/0.000 for
-every model — no tools exist in this suite, so there is nothing to waste.
-They are omitted here; JSON-answer rate and token cost carry the signal.
+## The findings that matter
 
-## The three findings that matter
+### 1. `causal-07b` remains unbeaten — the suite's best discriminator
 
-### 1. `causal-07b` beat every model — the only universal miss
+Two-step counterfactual: door opens if card valid OR code correct, *unless
+lockdown seals it*. Required: `door_now=closed` **and**
+`door_if_lockdown_lifted=true`. Across both runs, **no model has scored
+100** — and at 4096 every answer was clean JSON, so this is settled as a
+reasoning gap, not a budget artifact:
 
-The case is a two-step counterfactual: door opens if card valid OR code
-correct, *unless lockdown seals it*. State: card invalid, code correct,
-lockdown active. Required: `door_now=closed` **and**
-`door_if_lockdown_lifted=true`.
+| Model | Run 1 (≤1024 tok) | Run 2 (≤4096 tok) |
+|---|---:|---:|
+| Tiel | 0 | 50 |
+| Ornith | 50 | **0** (regressed) |
+| Gemma | 50 | 50 |
+| Qwen3.6 | 50 | 50 |
+| Devstral | 50 | 50 |
+| Bonsai | 50 | — (50 stands) |
 
-All six models emitted clean JSON well under the token cap — and **none
-scored 100**. Five scored exactly 50 (one field of two); Tiel scored 0. Since
-extracted answers are not stored in results, which specific field each model
-missed is not recoverable post-hoc — but the uniform partial credit with zero
-formatting failures means the miss is reasoning, not parsing. The plausible
-read is the counterfactual half (removing the override correctly) — `07a`,
-which only tests the override itself, scored 91.7 mean — but that is
-inference, not evidence; see caveats.
+Five models get exactly one of two fields. Which field is not recoverable —
+extracted answers are not stored in results — but `causal-07a` (override
+only, no counterfactual) is near-solved, so the plausible failure point is
+the "remove the override" step. That is inference, not measurement; see
+caveats.
 
-### 2. Devstral's failures are genuine — and reveal a shallow-commit pattern
+### 2. Budget fix resolved 14 of 15 confounded results — and exposed variance
 
-Devstral's 8 genuine failures were not truncation: it answered in **11–25
-completion tokens** on six of them (11 on `knights-cookie-01b`, 13 on
-`operator-09a`, 22 on `syllogism-02a`, 25 on `causal-07b`). It commits to an
-answer without deliberation — and is wrong often enough to cost 38 points of
-quality. Its worst-case is `ordering-05a`: valid JSON, 434 tokens, scored 0 —
-it reported determinate positions the premises do not fix, i.e. overclaimed
-on the suite's flagship epistemic-discipline case. Contrast with the tool
-suite, where its failure mode was different (obeying a prompt injection).
+Of the 15 sub-100 results that coincided with the 1024 cap, 14 improved at
+4096 — 13 to a full 100, plus Qwen `ordering-05a` 0→67. The lone exception
+is Gemma's `ordering-05a`, which hit the cap *again* (see finding 3). But
+the same runs also produced **regressions and improvements on cases that
+were never truncated** — sampling variance at temperature 0.6, not budget.
+Devstral's `ordering-05a`/`selfref-08a` fixes below are variance, not
+budget (both were genuine run-1 failures):
 
-### 3. Half of Gemma's score is a budget artifact — rerun needed
+| Model | Fixed at 4096 | Regressed at 4096 | Net quality |
+|---|---|---|---:|
+| Ornith | 02a, 02b, 08a, 10b (0→100 ×4) | 05a (100→67), 07b (50→0) | 76.19→91.27 |
+| Gemma | 01a, 04a, 04b, 05b, 08a, 10a, 10b (0→100 ×7) | 03a (100→0, hit cap) | 59.52→88.10 |
+| Qwen3.6 | 05a (0→67), 05b (20→100) | 07a (100→50), 06b (100→0) | 89.05→88.89 |
+| Devstral | 03a, 05a, 08a (0→100 ×3) | 06a, 06b (100→0 ×2), 10b (100→50) | 61.90→69.05 |
+| Tiel | — | 07b improved 0→50 | 95.24→97.62 |
 
-**Every one of Gemma's 8 zero-scores hit exactly 1024 tokens.** It also has
-the worst JSON-answer rate (0.62) — and the two observations are the same
-event: its responses run long and get cut before the JSON answer is emitted.
-This says nothing yet about whether the reasoning inside those truncated
-responses was right. Ornith is in the same boat on a smaller scale: all 4 of
-its zeros are cap hits (`syllogism-02a/b`, `selfref-08a`, `grid-path-10b`).
-Qwen3.6's two underdetermination failures (`ordering-05a/b`) are likewise
-confounded — both responses were truncated mid-thought.
+**Read:** single-run scores carry roughly ±5 points of sampling noise. The
+Ornith/Qwen/Gemma gap (91.27 vs 88.89 vs 88.10) is within that band — treat
+ranks 3–5 as a cluster, not an ordering. The Devstral gap (−19.8 vs rank 5)
+is not noise.
 
-Conversely, Bonsai's clean sweep (20/21 at 100, zero cap hits) happened under
-the only adequate budget — 4096 tokens via its preset. The honest reading of
-this leaderboard is not "Bonsai is best" but "**Bonsai was the only model
-allowed to finish thinking**". Tiel's 95.24 at the 1024 cap (its one cap hit
-still scored 100 via prose fallback) is arguably the most impressive raw
-result — it is both fast (5.91 s/turn mean) and accurate within a budget that
-handicapped everyone else.
+### 3. Gemma doesn't terminate — budget wasn't its only problem
 
-## Per-category means
+Gemma converted all 7 resolvable truncations to 100 — but then hit the
+**4096 cap twice**: `schedule-03a` (which it had *passed* at 930 tokens in
+run 1 — it talked itself out of a correct answer) and `ordering-05a`, the
+epistemic-discipline case where it apparently never stops enumerating. Its
+totals are an outlier: 33,748 completion tokens / 540 s — more than Qwen
+(5,470 / 78 s) and Devstral (2,720 / 245 s) combined. Highest cost, 5th
+place. The two cap-hit zeros remain confounded, but the *pattern* — verbose
+deliberation without a stopping criterion — is itself the finding.
+
+### 4. Devstral's instant-commit pattern is confirmed, not truncation
+
+All 8 of Devstral's genuine failures came in at **11–25 completion tokens**
+— it emits an answer without deliberating: `state-sim-06a/b` (0 each, 11
+tokens — it guesses the final box), `knights-cookie-01b` (0, 11 tok),
+`operator-09a` (0, 13 tok), `syllogism-02a` (0, 22 tok). When it *does*
+reason it can succeed — `schedule-03a` took 1,501 tokens / 124 s and scored
+100 — but the default behavior is commit-first. Notably it *fixed* its
+run-1 `ordering-05a` overclaim (0→100 at 35 tokens) — instant answers are
+sometimes right, which makes the failure mode harder to detect in practice.
+
+## Per-category means (equal budget)
 
 | Category | Ornith | Tiel | Gemma | Qwen3.6 | Devstral | Bonsai |
 |---|---:|---:|---:|---:|---:|---:|
-| deduction | 100 | 100 | 50 ‡ | 100 | 50 | 100 |
-| validity | 33 ‡ | 100 | 100 | 100 | 67 | 100 |
-| constraints | 100 | 100 | 100 | 100 | 50 | 100 |
-| elimination | 100 | 100 | 0 ‡ | 100 | 100 | 100 |
-| underdetermination | 100 | 100 | 0 ‡ | 10 ‡ | 50 | 100 |
-| simulation | 100 | 100 | 100 | 100 | 50 | 100 |
-| intervention | 50 | 50 | 75 | 75 | 75 | 75 |
-| self_reference | 50 ‡ | 100 | 50 ‡ | 100 | 50 | 100 |
+| deduction | 100 | 100 | 100 | 100 | 50 | 100 |
+| validity | 100 | 100 | 100 | 100 | 67 | 100 |
+| constraints | 100 | 100 | 50 † | 100 | 100 | 100 |
+| elimination | 100 | 100 | 100 | 100 | 100 | 100 |
+| underdetermination | 83 | 100 | 50 † | 83 | 100 | 100 |
+| simulation | 100 | 100 | 100 | 50 | 0 | 100 |
+| intervention | 25 | 75 | 75 | 50 | 75 | 75 |
+| self_reference | 100 | 100 | 100 | 100 | 100 | 100 |
 | symbol_manipulation | 100 | 100 | 100 | 100 | 25 | 100 |
-| planning | 50 ‡ | 100 | 0 ‡ | 100 | 100 | 100 |
+| planning | 100 | 100 | 100 | 100 | 75 | 100 |
 
-*‡ = at least one sub-100 score in the category coincides with a 1024-token
-truncation — treat as "unknown", not "failed".*
+*† Gemma's two remaining misses are 4096-cap hits — still confounded.*
 
-## Per-case matrix (quality; † = truncated at cap, ○ = non-JSON answer)
+## Per-case matrix (quality; † = hit token cap, ○ = non-JSON answer)
 
-| Case | Ornith | Tiel | Gemma | Qwen3.6 | Devstral | Bonsai |
+| Case | Ornith | Tiel | Gemma | Qwen3.6 | Devstral | Bonsai* |
 |---|---|---|---|---|---|---|
-| knights-cookie-01a | 100 | 100 | 0 †○ | 100 | 100 | 100 |
+| knights-cookie-01a | 100 | 100 | 100 | 100 | 100 | 100 |
 | knights-cookie-01b | 100 ○ | 100 | 100 | 100 | **0** | 100 |
-| syllogism-02a | 0 †○ | 100 | 100 | 100 | **0** | 100 ○ |
-| syllogism-02b | 0 †○ | 100 | 100 | 100 | 100 | 100 |
+| syllogism-02a | 100 | 100 ○ | 100 | 100 | **0** | 100 ○ |
+| syllogism-02b | 100 | 100 | 100 | 100 | 100 | 100 |
 | syllogism-02c | 100 | 100 | 100 | 100 | 100 | 100 |
-| schedule-03a | 100 | 100 | 100 | 100 | 0 †○ | 100 |
+| schedule-03a | 100 | 100 | 0 †○ | 100 | 100 | 100 |
 | schedule-03b | 100 | 100 | 100 | 100 | 100 | 100 |
-| zebra-04a | 100 | 100 | 0 †○ | 100 | 100 | 100 |
-| zebra-04b | 100 | 100 | 0 †○ | 100 | 100 | 100 |
-| ordering-05a | 100 | 100 ○ | 0 †○ | 0 †○ | **0** | 100 |
-| ordering-05b | 100 | 100 | 0 †○ | 20 †○ | 100 | 100 |
-| state-sim-06a | 100 | 100 | 100 | 100 | 100 | 100 |
-| state-sim-06b | 100 | 100 | 100 | 100 | **0** | 100 |
-| causal-07a | 50 | 100 | 100 | 100 | 100 | 100 |
-| causal-07b | 50 | **0** | 50 | 50 | 50 | 50 |
-| selfref-08a | 0 †○ | 100 | 0 †○ | 100 | **0** | 100 |
+| zebra-04a | 100 | 100 | 100 | 100 | 100 | 100 |
+| zebra-04b | 100 | 100 | 100 | 100 | 100 | 100 |
+| ordering-05a | 67 | 100 | 0 †○ | 67 | 100 | 100 |
+| ordering-05b | 100 | 100 | 100 | 100 | 100 | 100 |
+| state-sim-06a | 100 | 100 | 100 | 100 | **0** | 100 |
+| state-sim-06b | 100 | 100 | 100 | **0** | **0** | 100 |
+| causal-07a | 50 | 100 | 100 | 50 | 100 | 100 |
+| causal-07b | **0** | 50 | 50 | 50 | 50 | 50 |
+| selfref-08a | 100 | 100 | 100 | 100 | 100 | 100 |
 | selfref-08b | 100 | 100 | 100 | 100 | 100 | 100 |
 | operator-09a | 100 | 100 | 100 | 100 | **0** | 100 |
 | operator-09b | 100 | 100 | 100 | 100 | 50 | 100 |
-| grid-path-10a | 100 | 100 | 0 †○ | 100 | 100 | 100 |
-| grid-path-10b | 0 †○ | 100 | 0 †○ | 100 | 100 | 100 |
+| grid-path-10a | 100 | 100 | 100 | 100 | 100 | 100 |
+| grid-path-10b | 100 | 100 | 100 | 100 | 50 | 100 |
 
-Bold = genuine failure (finished under cap, parseable answer, wrong).
-† = response hit the token cap on a sub-100 case — outcome confounded.
-○ = `json_answer=false` (prose fallback still graded; Tiel/Bonsai each scored
-100 on a prose-fallback case).
+*\* Bonsai column is from run 1 — identical effective budget (4096-token
+preset), so directly comparable. ○ = `json_answer=false` (prose fallback
+still graded — Tiel and Bonsai each scored 100 on a prose-fallback case).*
 
 ## Caveats
 
-- **The 1024-token budget confounds 15 of 29 sub-100 results.** For a clean
-  ranking, rerun with `OMLX_MAX_TOKENS=4096` so the non-preset models get
-  Bonsai's budget. Until then, Gemma's 59.52 and Ornith's 76.19 are lower
-  bounds, not measurements.
-- **Results do not store extracted answers.** On `causal-07b` we know each
-  model missed one field but not which — adding the parsed answer JSON to
+- **Sampling variance is now measured, not assumed.** Identical-config runs
+  flipped individual cases in both directions (e.g. Qwen 06b 100→0,
+  Devstral 05a 0→100). ±1 case ≈ ±4.8 quality points — any ranking within
+  that band is provisional. N≥2 runs per model would firm it up.
+- **Extracted answers are not stored.** On `causal-07b` we know each model
+  missed one of two fields but not which. Storing the parsed answer JSON in
   the result record is a worthwhile runner improvement for exactly this
   audit scenario.
-- **21 cases is a screen, not a ranking** — one confounded case swings a
-  model ~4.8 points. The `floor`/`standard`/`hard` tags earned their keep:
-  of the 9 `floor` cases, every miss is either a truncation or a Devstral
-  instant-commit (`operator-09a`, 13 tokens) — no model failed a floor case
-  on deliberated reasoning.
-- **JSON-answer rate is budget-correlated**, not a pure compliance metric:
-  Gemma's 8 JSON failures are exactly its 8 truncations. At an adequate
-  budget this column should approach 1.0 for instruct-tuned models.
-- **Suite ≠ tool-use.** A model can excel here and fail agentically
-  (Devstral) or vice versa (Qwen3.6's error-recovery miss). The two reports
-  measure different competencies; neither subsumes the other.
+- **Gemma's two cap-hit zeros stay confounded** even at 4096 — its
+  non-termination means no budget may resolve them; the verbosity is the
+  measurable defect regardless of what the truncated reasoning contained.
+- **The ranks-3–5 cluster is real but unordered.** Ornith/Qwen/Gemma at
+  91.3/88.9/88.1 with ±5 noise are statistically indistinguishable in one
+  run. Tiel/Bonsai at 97.6 and Devstral at 69.1 are separated beyond noise.
+- **21 cases is a screen.** Floor cases worked as designed: every floor
+  miss across both runs is either a cap hit or a Devstral instant-commit —
+  no model failed a floor case on deliberated reasoning.
+- **Suite ≠ tool-use.** Devstral is weakest here and failed agentically too
+  (prompt injection); Qwen3.6 shows the inverse pattern (strong logic,
+  failed error-recovery with tools). The two benchmarks measure different
+  competencies — neither subsumes the other.
