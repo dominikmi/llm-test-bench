@@ -878,12 +878,12 @@ def write_csv(results: list[ToolCaseResult]) -> None:
     ]
     temporary_path = CSV_PATH.with_suffix(f"{CSV_PATH.suffix}.tmp")
     with temporary_path.open("w", encoding="utf-8", newline="") as output:
-        writer = csv.DictWriter(output, fieldnames=flat_fields)
+        writer = csv.DictWriter(
+            output, fieldnames=flat_fields, extrasaction="ignore"
+        )
         writer.writeheader()
         for result in results:
-            row = asdict(result)
-            row.pop("trace")
-            writer.writerow(row)
+            writer.writerow(asdict(result))
     temporary_path.replace(CSV_PATH)
 
 

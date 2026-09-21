@@ -399,6 +399,35 @@ class LoopTests(unittest.TestCase):
         self.assertEqual(result.call_efficiency, 1.0)
 
 
+class ReportWritingTests(unittest.TestCase):
+    """CSV writer must drop non-flat fields without raising."""
+
+    def _result(self) -> tools.ToolCaseResult:
+        return tools.ToolCaseResult(
+            model="m", case_id="c", category="cat", quality=100.0,
+            call_efficiency=1.0, turn_efficiency=1.0, waste_ratio=0.0,
+            calls=1, turns=1, invalid_calls=0, identical_retries=0,
+            off_plan_calls=0, forbidden_hits=0, json_answer=True,
+            terminated="answer", elapsed_seconds=1.0, prompt_tokens=10,
+            completion_tokens=5, prompt_tokens_per_second=0.0,
+            output_tokens_per_second=0.0,
+            answer_text='{"a": 1}',
+            extracted_answer={"a": 1},
+        )
+
+    def test_csv_ignores_answer_fields(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            original = tools.CSV_PATH
+            tools.CSV_PATH = Path(tmp) / "out.csv"
+            try:
+                tools.write_csv([self._result()])
+            finally:
+                tools.CSV_PATH = original
+            header = (Path(tmp) / "out.csv").read_text().splitlines()[0]
+            self.assertNotIn("answer_text", header)
+            self.assertNotIn("extracted_answer", header)
+
+
 class ExtractionTests(unittest.TestCase):
     def test_fenced_json(self) -> None:
         parsed = tools._extract_json_object('```json\n{"a": 1}\n```')
