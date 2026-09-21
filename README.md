@@ -5,6 +5,23 @@ across two serving stacks: **Galileo** (remote llama.cpp server at
 `<llama-server>:8080/v1`) and **oMLX** (local MLX server on macOS at
 `127.0.0.1:8000/v1`).
 
+## Getting started
+
+Requires macOS, Python 3.11+, and [uv](https://docs.astral.sh/uv/). No model
+servers are needed for setup, checks, or audits — live servers are only
+required when actually running a bench:
+
+```bash
+make install   # verify toolchain + create .venv via uv sync (runtime + dev deps)
+make check     # offline unit tests + ruff + mypy (no live servers required)
+make audit     # uv audit (dependency CVEs) + bandit source scan
+```
+
+`make install` installs pinned dev tools (ruff, mypy, bandit) alongside the
+runtime dependency (pydantic). Live benches still need the model list and
+sampling presets under `config/` plus the `*_BASE_URL`/`*_API_KEY` env vars
+described below.
+
 ## One entry point: `bin/bench.py`
 
 All runners are dispatched through a single orchestrator. Benches are named

@@ -208,9 +208,10 @@ class ConfigurableJudgeClient(JudgeClient):
             method="POST",
             headers=headers,
         )
+        # Endpoint URL is operator-configured via *_BASE_URL env vars.
         with (
             hard_timeout(self._judge_timeout),
-            urllib.request.urlopen(
+            urllib.request.urlopen(  # nosec B310
                 request, timeout=self._judge_timeout
             ) as response,
         ):
@@ -506,9 +507,12 @@ class OmlxClient:
             },
         )
         try:
+            # Endpoint URL is operator-configured via *_BASE_URL env vars.
             with (
                 hard_timeout(TIMEOUT_SECONDS),
-                urllib.request.urlopen(request, timeout=TIMEOUT_SECONDS) as response,
+                urllib.request.urlopen(  # nosec B310
+                    request, timeout=TIMEOUT_SECONDS
+                ) as response,
             ):
                 parsed = json.load(response)
         except urllib.error.HTTPError as error:
@@ -542,9 +546,12 @@ class OmlxClient:
             },
         )
         try:
+            # Endpoint URL is operator-configured via *_BASE_URL env vars.
             with (
                 hard_timeout(TIMEOUT_SECONDS),
-                urllib.request.urlopen(request, timeout=TIMEOUT_SECONDS) as response,
+                urllib.request.urlopen(  # nosec B310
+                    request, timeout=TIMEOUT_SECONDS
+                ) as response,
             ):
                 return self._collect_stream(response)
         except urllib.error.HTTPError as error:

@@ -540,9 +540,12 @@ class GalileoClient:
             },
         )
         try:
+            # Endpoint URL is operator-configured via *_BASE_URL env vars.
             with (
                 hard_timeout(TIMEOUT_SECONDS),
-                urllib.request.urlopen(request, timeout=TIMEOUT_SECONDS) as response,
+                urllib.request.urlopen(  # nosec B310
+                    request, timeout=TIMEOUT_SECONDS
+                ) as response,
             ):
                 parsed = json.load(response)
         except urllib.error.HTTPError as error:

@@ -691,9 +691,12 @@ class GalileoClient:
             },
         )
         try:
+            # Endpoint URL is operator-configured via *_BASE_URL env vars.
             with (
                 hard_timeout(TIMEOUT_SECONDS),
-                urllib.request.urlopen(request, timeout=TIMEOUT_SECONDS) as response,
+                urllib.request.urlopen(  # nosec B310
+                    request, timeout=TIMEOUT_SECONDS
+                ) as response,
             ):
                 parsed = json.load(response)
         except urllib.error.HTTPError as error:
@@ -734,9 +737,12 @@ class JudgeClient:
             method="POST",
             headers=headers,
         )
+        # Endpoint URL is operator-configured via *_BASE_URL env vars.
         with (
             hard_timeout(JUDGE_TIMEOUT),
-            urllib.request.urlopen(request, timeout=JUDGE_TIMEOUT) as response,
+            urllib.request.urlopen(  # nosec B310
+                request, timeout=JUDGE_TIMEOUT
+            ) as response,
         ):
             parsed = json.load(response)
         if not isinstance(parsed, dict):

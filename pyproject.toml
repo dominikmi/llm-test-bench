@@ -1,0 +1,21 @@
+[project]
+name = "llm-test-bench"
+version = "0.1.0"
+description = "Benchmark harness comparing LLM serving stacks on code review, tool use, logic, and math"
+readme = "README.md"
+license = { text = "Apache-2.0" }
+requires-python = ">=3.11"
+dependencies = [
+    "pydantic>=2.7,<3",
+]
+
+[dependency-groups]
+dev = [
+    "bandit>=1.8,<2",
+    "mypy>=1.11,<3",
+    # Pinned exact: 0.16.8 was <7 days old at lock time (freshness gate).
+    "ruff==0.16.7",
+]
+
+[tool.uv]
+package = false

@@ -1,5 +1,18 @@
 # Project Guide
 
+## Setup
+
+```bash
+make install   # uv sync: .venv with pinned runtime + dev deps (requires uv)
+make check     # offline unit tests + ruff + mypy (no live servers needed)
+make audit     # uv audit (dependency CVEs) + bandit source scan (MEDIUM+ gates)
+```
+
+Bandit findings on `urllib.request.urlopen` (B310) are marked `# nosec` with
+justification: endpoint URLs come from operator-configured `*_BASE_URL` env
+vars, never request input. Do not silence other findings the same way without
+an equivalent justification.
+
 ## Layout
 
 - `bin/` contains runnable entry points: `bin/bench.py <bench> [runner args]` dispatches to runners by `<backend>-<what>` names: `omlx-review`, `galileo-review`, `omlx-tools`, `omlx-logic`, `omlx-agent`, `galileo-tools`, `galileo-logic`, `galileo-agent`, `galileo-pipeline`, `omlx-pipeline`, `galileo-math`, `omlx-math`. It injects `--backend`/`--suite` defaults unless the user passed those flags. Runner modules also run via `python3 -m modules.<name>` from the repo root.
