@@ -109,6 +109,14 @@ architectural, not a bug.
   (blob-fallback salvage); the judge mitigates but doesn't eliminate it.
 - Bonsai's rerun used `reasoning_effort=medium` while the other five ran
   their defaults — treat its row as "best-tuned Bonsai", not stock config.
+- Sampling asymmetry in the field (from `presets-omlx.ini`): Ornith, Tiel
+  and Qwen3.6 share identical sampling (`temp 0.6, top_p 0.95, top_k 20`),
+  so differences among them are weights, not tuning. Gemma runs hotter
+  (`temp 0.8, top_k 64, min_p 0.05, rep_pen 1.05`) — consistent with its
+  verbosity, but not isolated as a cause. Devstral has **no preset at
+  all** — it ran on its `devstral-code` server-profile defaults, which are
+  undocumented; its results were measured under unknown sampling. Adding
+  an explicit entry would close that control gap.
 - Throughput: profile aliases ran slowest (Devstral 12.3, Bonsai 22.4 out
   tok/s) — but this is dense-vs-MoE architecture, not profile overhead:
   the four leaders are all MoE (3–4B active params), Devstral and Bonsai

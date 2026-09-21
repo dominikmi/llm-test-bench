@@ -151,6 +151,58 @@ sometimes right, which makes the failure mode harder to detect in practice.
 preset), so directly comparable. ○ = `json_answer=false` (prose fallback
 still graded — Tiel and Bonsai each scored 100 on a prose-fallback case).*
 
+## Parametrization impact — what is credible, what is not
+
+Actual per-request sampling (from `presets-omlx.ini`, identical across both
+runs and the tool-use run):
+
+| Model | temp | top_p | top_k | min_p | rep_pen | Other |
+|---|---:|---:|---:|---:|---:|---|
+| Ornith | 0.6 | 0.95 | 20 | 0 | 1.0 | — |
+| Tiel | 0.6 | 0.95 | 20 | 0 | 1.0 | MTP architecture |
+| Gemma | **0.8** | 0.95 | **64** | **0.05** | **1.05** | hottest sampling in field |
+| Qwen3.6 | 0.6 | 0.95 | 20 | 0 | 1.0 | MTP, reasoning-distilled |
+| Devstral | — | — | — | — | — | **no preset — server profile defaults** |
+| Bonsai | — | — | — | — | — | `reasoning_effort=medium`, cap 4096 |
+
+**Credible claims:**
+
+- **Bonsai's `reasoning_effort=medium` is a documented mechanism, not a
+  correlation.** Its default (and `low`) effort leaks reasoning into the
+  content channel, breaking the JSON contract; `medium` emits a proper
+  think channel plus clean content. Effect here: 0 cap hits and 20/21 full
+  marks — but at 15.8 s/turn mean it is ~3× slower than Tiel. Positive on
+  quality and format, negative on latency. This trade is reproducible
+  (same fix documented in the review benchmark).
+- **The A3B trio (Ornith/Tiel/Qwen) share identical sampling** — quality
+  differences among them are attributable to weights/training only. This
+  is the cleanest comparison axis in the field: Tiel's edge over Ornith
+  (97.6 vs 91.3) is a model difference, not a tuning artifact.
+- **Temperature explains the observed run-to-run noise floor.** Identical
+  configs flipped cases in both directions between runs — consistent with
+  temp 0.6 sampling. Gemma runs hotter still (0.8, top_k 64, min_p 0.05);
+  its flips were larger in magnitude and it alone failed to terminate at
+  4096 twice. Consistent with wider sampling producing longer, less
+  constrained deliberation — plausible mechanism, single model, not proven.
+- **Devstral has no preset — it ran on the `devstral-code` server
+  profile's defaults, which are unknown to this benchmark.** Its
+  instant-commit pattern (11–25 tokens on failures) cannot be attributed
+  to sampling, but the *absence of an explicit preset is a control gap*:
+  its results were measured under different, undocumented conditions than
+  the rest of the field. Recommend adding an explicit entry to normalize.
+
+**Not credible from this data:**
+
+- **Quantization differences** (4-bit vs oQ4e vs oQ4 vs 6-bit vs ternary)
+  cannot be isolated — every model differs in both weights and quant, so
+  no quality delta can be attributed to compression.
+- **MTP (Tiel, Qwen)** — effective tok/s here includes prompt evaluation,
+  and no non-MTP twin exists in the field; prior dedicated tests showed
+  ~no gain over dense decode. Nothing in this run changes that.
+- **`min_p`/`rep_penalty` as verbosity causes** — Gemma's rambling is
+  *consistent* with its hotter sampling but equally consistent with model
+  behavior; a temp-0.6 Gemma run would be needed to separate them.
+
 ## Caveats
 
 - **Sampling variance is now measured, not assumed.** Identical-config runs
