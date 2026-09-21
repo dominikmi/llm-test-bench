@@ -117,6 +117,15 @@ with the preset adding `reasoning_effort=medium` + `max_tokens=4096`.
 - **Cannot attribute**: Tiel's schema-invalid first call and Qwen's
   error-recovery miss are single observations under shared sampling —
   consistent with model behavior, not provable as temperature effects.
+- **Measured variants are the coding profiles, not the agent ones.** oMLX
+  also ships `devstral-agent` and `bonsai2-agent`. Their deltas are
+  factual: `devstral-agent` keeps identical sampling (temp 0.15, thinking
+  off) — it changes only context window (128K), tool-result budget (32K)
+  and KV-cache bits, so a rerun exercises capacity, not decoding.
+  `bonsai2-agent` is a materially different configuration — temp 0.7,
+  top_k 40, thinking budget 16384 — and would measure a genuinely
+  different setup. Either profile is selectable via
+  `Model:devstral-agent` / `:bonsai2-agent` in the model list.
 
 ## Caveats
 

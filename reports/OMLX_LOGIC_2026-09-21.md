@@ -208,6 +208,14 @@ settings apply.*
   Note the profile's thinking budget (8192) exceeds the benchmark's output
   cap (4096): thinking and answer share one completion budget, so the
   effective reasoning room was narrower than the profile implies.
+- **The measured variants are the coding profiles, not the agent ones.**
+  oMLX also ships `devstral-agent` and `bonsai2-agent`. Factual deltas:
+  `devstral-agent` keeps identical sampling (temp 0.15, thinking off) —
+  only context (128K), tool-result budget (32K) and KV-cache bits differ,
+  so a rerun exercises capacity, not decoding. `bonsai2-agent` is
+  materially different — temp 0.7, top_k 40, thinking budget 16384 — a
+  genuinely different configuration. Selectable via
+  `Model:devstral-agent` / `:bonsai2-agent` in the model list.
 - **The remaining control gap is comparability, not secrecy.** Profile
   values are now documented above, but they still differ from the trio's
   explicit preset — to compare all six under identical sampling, add
