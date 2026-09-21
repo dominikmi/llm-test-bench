@@ -8,6 +8,14 @@ stop.
 Suite file: `test_definitions/tool_use.json`
 Runner (planned): `benchmark_agent_tools.py` — simulated tool-calling loop.
 
+**Judge-free by design.** Unlike the review suite, no LLM judge participates
+in grading — every score derives deterministically from the call trace
+(tool names, arguments, ordering, turn structure) and typed answer-field
+matching. This removes judge latency, verdict nondeterminism, the second-endpoint
+dependency, and `partial`-verdict leniency. The trade-off is acknowledged in
+[Known limitations](#known-limitations-post-mitigation): grading brittleness
+is bounded by `required_tools` gating and audited via `json_answer` flags.
+
 ## Design: simulated harness
 
 The model under test talks to an OpenAI-compatible `/chat/completions` endpoint
@@ -22,6 +30,27 @@ loop:
     else:
         record final content as the answer; stop
 stop conditions: final answer | max_turns | max_calls
+```
+
+```mermaid
+flowchart TD
+    START([case loaded]) --> INIT["Build messages:<br/>task + answer-contract fields<br/>+ available_tools schemas"]
+    INIT --> CALL["POST /chat/completions<br/>messages + tools + preset sampling"]
+    CALL --> DECIDE{tool_calls<br/>in response?}
+    DECIDE -->|"yes"| VALID{args valid<br/>against schema?}
+    VALID -->|"no"| INV["classify: invalid<br/>append schema-error tool msg"] --> CAPS
+    VALID -->|"yes"| CLS{classify call}
+    CLS -->|duplicate| DUP["identical_retry"] --> DISP
+    CLS -->|not in plans| OFF["off_plan"] --> DISP
+    CLS -->|forbidden_tools| FRB["forbidden<br/>→ quality = 0"] --> DISP
+    CLS -->|"otherwise"| OK["valid"] --> DISP
+    DISP["mock dispatch:<br/>first matching rule wins<br/>result or error envelope"] --> APPEND["append tool results<br/>to messages"]
+    APPEND --> CAPS{max_calls or<br/>max_turns hit?}
+    CAPS -->|no| CALL
+    CAPS -->|"yes"| GRADE
+    DECIDE -->|"final content"| GRADE["Grade (deterministic):<br/>answer.fields typed match<br/>+ trace classification<br/>+ required/forbidden check"]
+    GRADE --> METRICS["Emit: quality, call_efficiency,<br/>turn_efficiency, waste_ratio,<br/>json_answer, tokens"]
+    METRICS --> ENDC([next case])
 ```
 
 No real tools execute. Every tool response is a deterministic fixture from the
