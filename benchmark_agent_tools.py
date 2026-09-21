@@ -556,13 +556,11 @@ class ToolLoop:
         turn_seconds: list[float] = []
         terminated = "max_turns"
         final_text = ""
-        turns = 0
         started = time.perf_counter()
         for turn in range(1, grading.max_turns + 1):
             if len(records) >= grading.max_calls:
                 terminated = "max_calls"
                 break
-            turns += 1
             turn_started = time.perf_counter()
             message, usage = self._chat(messages, tools)
             turn_seconds.append(round(time.perf_counter() - turn_started, 3))
@@ -634,6 +632,9 @@ class ToolLoop:
             quality, json_answer = 0.0, False
         if forbidden_hits or not required_hit:
             quality = 0.0
+        # turn_efficiency compares decision turns (turns that issued calls);
+        # the final answer turn carries no tool_calls and is excluded.
+        decision_turns = max((r.turn for r in records), default=0)
         waste = invalid + retries + off_plan
         return ToolCaseResult(
             model=self._model,
@@ -644,11 +645,11 @@ class ToolLoop:
                 min(1.0, grading.optimal_calls / max(calls, 1)), 3
             ),
             turn_efficiency=round(
-                min(1.0, grading.optimal_turns / max(turns, 1)), 3
+                min(1.0, grading.optimal_turns / max(decision_turns, 1)), 3
             ),
             waste_ratio=round(waste / calls, 3) if calls else 0.0,
             calls=calls,
-            turns=turns,
+            turns=decision_turns,
             invalid_calls=invalid,
             identical_retries=retries,
             off_plan_calls=off_plan,
