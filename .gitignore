@@ -8,6 +8,7 @@ venv/
 .pytest_cache/
 
 # Benchmark artifacts — machine-generated, may contain local paths/hostnames
+# and raw model outputs (extracted_answer/answer_text in result JSONs)
 results/
 logs/
 archives/

@@ -200,35 +200,35 @@ class AnswerGradingTests(unittest.TestCase):
 
     def test_json_answer_full_match(self) -> None:
         text = json.dumps({"status": "shipped", "total": 249.5, "flag": True})
-        quality, is_json = tools._grade_answer(self.fields, text)
+        quality, is_json, _ = tools._grade_answer(self.fields, text)
         self.assertEqual(quality, 100.0)
         self.assertTrue(is_json)
 
     def test_json_answer_partial(self) -> None:
         text = json.dumps({"status": "delivered", "total": 249.5, "flag": True})
-        quality, _ = tools._grade_answer(self.fields, text)
+        quality, _, _ = tools._grade_answer(self.fields, text)
         self.assertAlmostEqual(quality, 66.67, places=1)
 
     def test_json_inside_prose(self) -> None:
         text = 'Here is the answer: {"status": "shipped", "total": 249.5, "flag": true} done.'
-        quality, is_json = tools._grade_answer(self.fields, text)
+        quality, is_json, _ = tools._grade_answer(self.fields, text)
         self.assertEqual(quality, 100.0)
         self.assertTrue(is_json)
 
     def test_prose_fallback(self) -> None:
         text = "status: shipped\ntotal: 249.5\nflag: true"
-        quality, is_json = tools._grade_answer(self.fields, text)
+        quality, is_json, _ = tools._grade_answer(self.fields, text)
         self.assertEqual(quality, 100.0)
         self.assertFalse(is_json)
 
     def test_number_tolerance(self) -> None:
         text = json.dumps({"status": "shipped", "total": 249.505, "flag": True})
-        quality, _ = tools._grade_answer(self.fields, text)
+        quality, _, _ = tools._grade_answer(self.fields, text)
         self.assertEqual(quality, 100.0)
 
     def test_wrong_answer(self) -> None:
         text = json.dumps({"status": "delivered", "total": 10, "flag": False})
-        quality, _ = tools._grade_answer(self.fields, text)
+        quality, _, _ = tools._grade_answer(self.fields, text)
         self.assertEqual(quality, 0.0)
 
 
@@ -266,7 +266,7 @@ class SetAndMapGradingTests(unittest.TestCase):
         flat = tools._flatten_fields(fields)
         self.assertEqual(set(flat), {"houses.h1", "houses.h2"})
         text = json.dumps({"houses": {"h1": "red", "h2": "blue"}})
-        quality, is_json = tools._grade_answer(fields, text)
+        quality, is_json, _ = tools._grade_answer(fields, text)
         self.assertEqual(quality, 50.0)
         self.assertTrue(is_json)
 
@@ -335,6 +335,21 @@ class LoopTests(unittest.TestCase):
         self.assertTrue(result.json_answer)
         self.assertEqual(result.calls, 0)
         self.assertNotIn("tools", client.payloads[0])
+        self.assertEqual(result.extracted_answer, {"taker": "alice"})
+        self.assertEqual(result.answer_text, '{"taker": "alice"}')
+
+    def test_logic_prose_answer_recorded(self) -> None:
+        case = tools.LogicCase(
+            case_id="x", category="deduction", task="who?",
+            answer=tools.AnswerSpec(fields={
+                "taker": tools.FieldSpec(type="enum", expect="alice"),
+            }),
+        )
+        client = FakeClient([_chat_response(content="The taker is alice.")])
+        result = tools.ToolLoop(client, "m").run_logic(case)
+        self.assertFalse(result.json_answer)
+        self.assertIsNone(result.extracted_answer)
+        self.assertEqual(result.answer_text, "The taker is alice.")
 
     def test_tool_loop_full_flow(self) -> None:
         suite = tools.load_suite()

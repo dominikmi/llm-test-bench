@@ -269,6 +269,8 @@ class ToolCaseResult:
     turn_seconds: tuple[float, ...] = ()
     error: str | None = None
     trace: tuple[dict[str, Any], ...] = field(default_factory=tuple)
+    answer_text: str = ""
+    extracted_answer: dict[str, Any] | None = None
 
 
 def load_suite(path: Path = SUITE_PATH) -> ToolUseSuite:
@@ -494,8 +496,8 @@ def _field_prose_match(name: str, spec: FieldSpec, text: str) -> bool:
 
 def _grade_answer(
     fields: dict[str, FieldSpec], final_text: str
-) -> tuple[float, bool]:
-    """Score the final answer against typed leaf fields; 0-100 + JSON flag."""
+) -> tuple[float, bool, dict[str, Any] | None]:
+    """Score the final answer; return quality, JSON flag, parsed object."""
     flat = _flatten_fields(fields)
     parsed = _extract_json_object(final_text)
     if parsed is not None:
@@ -503,12 +505,12 @@ def _grade_answer(
             _field_matches(spec, _lookup_path(parsed, name))
             for name, spec in flat.items()
         )
-        return 100.0 * matched / len(flat), True
+        return 100.0 * matched / len(flat), True, parsed
     matched = sum(
         _field_prose_match(name.split(".")[-1], spec, final_text)
         for name, spec in flat.items()
     )
-    return 100.0 * matched / len(flat), False
+    return 100.0 * matched / len(flat), False, None
 
 
 def _classify_call(
@@ -568,7 +570,9 @@ class ToolLoop:
         message, usage = self._chat(messages, None)
         elapsed = time.perf_counter() - started
         final_text = str(message.get("content") or "")
-        quality, json_answer = _grade_answer(case.answer.fields, final_text)
+        quality, json_answer, extracted = _grade_answer(
+            case.answer.fields, final_text
+        )
         return ToolCaseResult(
             model=self._model,
             case_id=case.case_id,
@@ -595,6 +599,8 @@ class ToolLoop:
                 usage.get("generation_tokens_per_second")
             ),
             turn_seconds=(round(elapsed, 3),),
+            answer_text=final_text,
+            extracted_answer=extracted,
         )
 
     def run(self, suite: ToolUseSuite, case: ToolCase) -> ToolCaseResult:
@@ -695,8 +701,9 @@ class ToolLoop:
             any(r.tool == name for r in records)
             for name in grading.required_tools
         )
+        extracted: dict[str, Any] | None = None
         if terminated == "answer" and final_text.strip():
-            quality, json_answer = _grade_answer(
+            quality, json_answer, extracted = _grade_answer(
                 grading.answer.fields, final_text
             )
         else:
@@ -737,6 +744,8 @@ class ToolLoop:
                 round(mean(output_rates), 2) if output_rates else 0.0
             ),
             turn_seconds=tuple(turn_seconds),
+            answer_text=final_text,
+            extracted_answer=extracted,
             trace=tuple(asdict(record) for record in records),
         )
 
@@ -863,7 +872,9 @@ def write_csv(results: list[ToolCaseResult]) -> None:
     """Write flat per-case metrics for spreadsheet analysis."""
     ensure_parent_directories(CSV_PATH)
     flat_fields = [
-        key for key in asdict(results[0]) if key != "trace"
+        key
+        for key in asdict(results[0])
+        if key not in {"trace", "answer_text", "extracted_answer"}
     ]
     temporary_path = CSV_PATH.with_suffix(f"{CSV_PATH.suffix}.tmp")
     with temporary_path.open("w", encoding="utf-8", newline="") as output:
