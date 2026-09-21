@@ -221,7 +221,7 @@ class ConfigurableJudgeClient(JudgeClient):
 
     def _judge(self, prompt: str) -> str:
         """Run one judge prompt with thinking disabled for the verdict."""
-        cache_key = f"{hash(prompt)}:{self._model}"
+        cache_key = f"{self._model}\n{prompt}"
         if cache_key in self._cache:
             return self._cache[cache_key]
         payload = {
@@ -232,6 +232,7 @@ class ConfigurableJudgeClient(JudgeClient):
             ],
             "temperature": 0.0,
             "max_tokens": galileo.JUDGE_MAX_TOKENS,
+            "thinking_budget": 0,
             "stream": False,
             "response_format": galileo.JUDGE_SCHEMA,
             "chat_template_kwargs": {"enable_thinking": False},
@@ -323,6 +324,8 @@ class OmlxClient:
                 payload["chat_template_kwargs"]["enable_thinking"] = bool(
                     sampling["enable_thinking"]
                 )
+                if not sampling["enable_thinking"]:
+                    payload["thinking_budget"] = 0
                 if use_schema and sampling["enable_thinking"]:
                     LOGGER.warning(
                         "Preset enables thinking under response_format for %s; "
@@ -723,7 +726,14 @@ def write_csv(results: list[CaseResult]) -> None:
     ensure_parent_directories(CSV_PATH)
     temporary_path = CSV_PATH.with_suffix(f"{CSV_PATH.suffix}.tmp")
     with temporary_path.open("w", encoding="utf-8", newline="") as output:
-        writer = csv.DictWriter(output, fieldnames=list(asdict(results[0]).keys()))
+        flat_fields = [
+            key
+            for key in asdict(results[0])
+            if key not in {"response", "reasoning_response", "parsed_findings"}
+        ]
+        writer = csv.DictWriter(
+            output, fieldnames=flat_fields, extrasaction="ignore"
+        )
         writer.writeheader()
         for result in results:
             row = asdict(result)
@@ -795,6 +805,7 @@ def load_results() -> tuple[list[CaseResult], dict[str, dict[str, Any]]]:
                 **item,
                 "matched_findings": tuple(item["matched_findings"]),
                 "missed_findings": tuple(item["missed_findings"]),
+                "parsed_findings": tuple(item.get("parsed_findings", ())),
             })
             for item in payload.get("results", [])
         ]

@@ -228,6 +228,7 @@ class CaseResult:
     accepted_draft_tokens: int
     response: str
     reasoning_response: str
+    parsed_findings: tuple[str, ...] = ()
     error: str | None = None
 
 
@@ -920,6 +921,7 @@ def score_response(
         accepted_draft_tokens=metrics.accepted_draft_tokens,
         response=metrics.text,
         reasoning_response=metrics.reasoning_text,
+        parsed_findings=response_findings,
     )
 
 
