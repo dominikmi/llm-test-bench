@@ -76,7 +76,7 @@ LOG_PATH: Final = Path(
     os.getenv("OMLX_TOOLS_LOG", str(LOGS_DIR / "omlx-tools.log"))
 )
 
-SCHEMA_VERSION: Final = 1
+SCHEMA_VERSION: Final = 2
 LOGGER: Final = logging.getLogger("omlx-tools-benchmark")
 MODELS: Final[tuple[str, ...]] = load_models(MODELS_PATH)
 
@@ -204,7 +204,9 @@ class ToolCaseResult:
     elapsed_seconds: float
     prompt_tokens: int
     completion_tokens: int
+    prompt_tokens_per_second: float
     output_tokens_per_second: float
+    turn_seconds: tuple[float, ...] = ()
     error: str | None = None
     trace: tuple[dict[str, Any], ...] = field(default_factory=tuple)
 
@@ -470,7 +472,9 @@ class ToolLoop:
         seen_calls: set[tuple[str, str]] = set()
         prompt_tokens = 0
         completion_tokens = 0
+        prompt_rates: list[float] = []
         output_rates: list[float] = []
+        turn_seconds: list[float] = []
         terminated = "max_turns"
         final_text = ""
         turns = 0
@@ -480,9 +484,14 @@ class ToolLoop:
                 terminated = "max_calls"
                 break
             turns += 1
+            turn_started = time.perf_counter()
             message, usage = self._chat(messages, tools)
+            turn_seconds.append(round(time.perf_counter() - turn_started, 3))
             prompt_tokens += _as_int(usage.get("prompt_tokens"))
             completion_tokens += _as_int(usage.get("completion_tokens"))
+            prompt_rate = _as_float(usage.get("prompt_tokens_per_second"))
+            if prompt_rate > 0:
+                prompt_rates.append(prompt_rate)
             rate = _as_float(usage.get("generation_tokens_per_second"))
             if rate > 0:
                 output_rates.append(rate)
@@ -570,9 +579,13 @@ class ToolLoop:
             elapsed_seconds=round(elapsed, 3),
             prompt_tokens=prompt_tokens,
             completion_tokens=completion_tokens,
+            prompt_tokens_per_second=(
+                round(mean(prompt_rates), 2) if prompt_rates else 0.0
+            ),
             output_tokens_per_second=(
                 round(mean(output_rates), 2) if output_rates else 0.0
             ),
+            turn_seconds=tuple(turn_seconds),
             trace=tuple(asdict(record) for record in records),
         )
 
@@ -624,6 +637,14 @@ def summarize(results: list[ToolCaseResult]) -> dict[str, dict[str, float]]:
             for result in rows
             if result.output_tokens_per_second > 0
         ]
+        prompt_rates = [
+            result.prompt_tokens_per_second
+            for result in rows
+            if result.prompt_tokens_per_second > 0
+        ]
+        total_quality = sum(r.quality for r in rows)
+        total_completion = sum(r.completion_tokens for r in rows)
+        turn_times = [t for r in rows for t in r.turn_seconds]
         summaries[model] = {
             "completed_cases": float(len(rows)),
             "failed_cases": float(sum(r.error is not None for r in rows)),
@@ -636,6 +657,17 @@ def summarize(results: list[ToolCaseResult]) -> dict[str, dict[str, float]]:
             ),
             "forbidden_hits": float(sum(r.forbidden_hits for r in rows)),
             "total_calls": float(sum(r.calls for r in rows)),
+            "tokens_per_quality_point": (
+                round(total_completion / total_quality, 1)
+                if total_quality > 0
+                else 0.0
+            ),
+            "mean_turn_seconds": (
+                round(mean(turn_times), 3) if turn_times else 0.0
+            ),
+            "mean_prompt_tokens_per_second": (
+                round(mean(prompt_rates), 2) if prompt_rates else 0.0
+            ),
             "mean_output_tokens_per_second": (
                 round(mean(rates), 2) if rates else 0.0
             ),
@@ -706,14 +738,20 @@ def write_markdown(payload: dict[str, Any]) -> None:
         "",
         "## Results",
         "",
-        "| Rank | Model | Quality | Call eff | Turn eff | Waste | JSON ans | Out tok/s | Fail |",
-        "|---:|---|---:|---:|---:|---:|---:|---:|---:|",
+        (
+            "| Rank | Model | Quality | Call eff | Turn eff | Waste | "
+            "JSON ans | Tok/pt | Turn s | PP tok/s | Out tok/s | Fail |"
+        ),
+        "|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
     for rank, (model, summary) in enumerate(ranked, start=1):
         lines.append(
             f"| {rank} | `{model}` | {summary['quality']:.2f} | "
             f"{summary['call_efficiency']:.3f} | {summary['turn_efficiency']:.3f} | "
             f"{summary['waste_ratio']:.3f} | {summary['json_answer_rate']:.2f} | "
+            f"{summary['tokens_per_quality_point']:.1f} | "
+            f"{summary['mean_turn_seconds']:.2f} | "
+            f"{summary['mean_prompt_tokens_per_second']:.2f} | "
             f"{summary['mean_output_tokens_per_second']:.2f} | "
             f"{summary['failed_cases']:.0f} |"
         )
@@ -727,14 +765,18 @@ def write_markdown(payload: dict[str, Any]) -> None:
     lines.extend([
         "## Case results",
         "",
-        "| Model | Case | Quality | Calls | Turns | Waste | Terminated | Out tok/s | Error |",
-        "|---|---|---:|---:|---:|---:|---|---:|---|",
+        (
+            "| Model | Case | Quality | Calls | Turns | Waste | Terminated "
+            "| Seconds | Out tok/s | Error |"
+        ),
+        "|---|---|---:|---:|---:|---:|---|---:|---:|---|",
     ])
     for result in payload["results"]:
         lines.append(
             f"| `{result['model']}` | {result['case_id']} | "
             f"{result['quality']:.2f} | {result['calls']} | {result['turns']} | "
             f"{result['waste_ratio']:.3f} | {result['terminated']} | "
+            f"{result['elapsed_seconds']:.2f} | "
             f"{result['output_tokens_per_second']:.2f} | {result['error'] or ''} |"
         )
     atomic_write(REPORT_PATH, "\n".join(lines) + "\n")
@@ -809,9 +851,9 @@ def print_summary(results: list[ToolCaseResult]) -> None:
     """Display final model rankings in the terminal."""
     LOGGER.info("Final results")
     LOGGER.info(
-        "%-45s %8s %9s %9s %7s %8s %10s %6s",
-        "MODEL", "QUALITY", "CALL EFF", "TURN EFF", "WASTE",
-        "JSON ANS", "OUT TOK/S", "FAIL",
+        "%-45s %8s %9s %9s %7s %8s %8s %7s %10s %10s %6s",
+        "MODEL", "QUALITY", "CALL EFF", "TURN EFF", "WASTE", "JSON ANS",
+        "TOK/PT", "TURN S", "PP TOK/S", "OUT TOK/S", "FAIL",
     )
     for model, summary in sorted(
         summarize(results).items(),
@@ -819,13 +861,16 @@ def print_summary(results: list[ToolCaseResult]) -> None:
         reverse=True,
     ):
         LOGGER.info(
-            "%-45s %8.2f %9.3f %9.3f %7.3f %8.2f %10.2f %6.0f",
+            "%-45s %8.2f %9.3f %9.3f %7.3f %8.2f %8.1f %7.2f %10.2f %10.2f %6.0f",
             model,
             summary["quality"],
             summary["call_efficiency"],
             summary["turn_efficiency"],
             summary["waste_ratio"],
             summary["json_answer_rate"],
+            summary["tokens_per_quality_point"],
+            summary["mean_turn_seconds"],
+            summary["mean_prompt_tokens_per_second"],
             summary["mean_output_tokens_per_second"],
             summary["failed_cases"],
         )
@@ -961,6 +1006,7 @@ def main(argv: list[str] | None = None) -> int:
                     elapsed_seconds=0.0,
                     prompt_tokens=0,
                     completion_tokens=0,
+                    prompt_tokens_per_second=0.0,
                     output_tokens_per_second=0.0,
                     error=f"{type(error).__name__}: {error}",
                 )

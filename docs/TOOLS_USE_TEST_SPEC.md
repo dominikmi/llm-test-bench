@@ -132,8 +132,13 @@ Per case:
 | `waste_ratio` | `(invalid + identical_retry + off_plan) / actual_calls` — junk independent of path length |
 | `json_answer` | final answer was valid JSON with the contract keys |
 | `forbidden_hits` | invocations of `forbidden_tools` |
-| `tokens` | prompt/completion usage from the API response |
+| `tokens` | prompt/completion usage summed across turns |
+| `turn_seconds` | wall time per model request (per-turn latency) |
 | `terminated` | `answer` \| `max_calls` \| `max_turns` — non-answer termination is `quality = 0` |
+
+Per model the summary additionally reports `tokens_per_quality_point`
+(total completion tokens ÷ total quality — the cost-of-correctness axis),
+`mean_turn_seconds`, and mean prompt/output tok/s.
 
 **Why both `call_efficiency` and `waste_ratio`:** distance-from-optimal and
 waste measure different failures. A 9-call enumeration in `optimal-strategy-01`
