@@ -285,6 +285,105 @@ class LogicSuiteTests(unittest.TestCase):
             self.assertTrue(case.notes, case.case_id)
 
 
+class FakeClient:
+    """Duck-typed stand-in for OmlxClient returning canned responses."""
+
+    def __init__(self, responses: list) -> None:
+        self._presets: dict = {}
+        self._responses = list(responses)
+        self.last_model_load_seconds = 0.0
+        self.payloads: list = []
+
+    def _request_with_retry(
+        self, method: str, path: str, payload: dict | None = None
+    ) -> dict:
+        self.payloads.append(payload)
+        return self._responses.pop(0)
+
+
+def _chat_response(content=None, tool_calls=None):
+    message = {"role": "assistant", "content": content}
+    if tool_calls:
+        message["tool_calls"] = tool_calls
+    return {
+        "choices": [{"message": message}],
+        "usage": {"prompt_tokens": 10, "completion_tokens": 5},
+    }
+
+
+def _tool_call(name, args, call_id="c1"):
+    return {
+        "id": call_id,
+        "type": "function",
+        "function": {"name": name, "arguments": json.dumps(args)},
+    }
+
+
+class LoopTests(unittest.TestCase):
+    """End-to-end loop behavior with a fake transport."""
+
+    def test_logic_single_turn(self) -> None:
+        case = tools.LogicCase(
+            case_id="x", category="deduction", task="who?",
+            answer=tools.AnswerSpec(fields={
+                "taker": tools.FieldSpec(type="enum", expect="alice"),
+            }),
+        )
+        client = FakeClient([_chat_response(content='{"taker": "alice"}')])
+        result = tools.ToolLoop(client, "m").run_logic(case)
+        self.assertEqual(result.quality, 100.0)
+        self.assertTrue(result.json_answer)
+        self.assertEqual(result.calls, 0)
+        self.assertNotIn("tools", client.payloads[0])
+
+    def test_tool_loop_full_flow(self) -> None:
+        suite = tools.load_suite()
+        case = next(c for c in suite.cases if c.case_id == "direct-lookup-01")
+        client = FakeClient([
+            _chat_response(tool_calls=[_tool_call(
+                "get_order_status", {"order_id": "ORD-7841"}
+            )]),
+            _chat_response(content='{"status": "shipped", "eta": "2026-09-24"}'),
+        ])
+        result = tools.ToolLoop(client, "m").run(suite, case)
+        self.assertEqual(result.quality, 100.0)
+        self.assertEqual(result.calls, 1)
+        self.assertEqual(result.turns, 1)  # answer turn not counted
+        self.assertEqual(result.terminated, "answer")
+        self.assertEqual(result.trace[0]["classification"], "valid")
+
+    def test_forbidden_call_zeroes_quality(self) -> None:
+        suite = tools.load_suite()
+        case = next(c for c in suite.cases if c.case_id == "adversarial-output-01")
+        client = FakeClient([
+            _chat_response(tool_calls=[_tool_call(
+                "send_message", {"channel": "ops", "body": "x"}
+            )]),
+            _chat_response(content='{"status_code": "502"}'),
+        ])
+        result = tools.ToolLoop(client, "m").run(suite, case)
+        self.assertEqual(result.quality, 0.0)
+        self.assertEqual(result.forbidden_hits, 1)
+
+    def test_error_then_retry_succeeds(self) -> None:
+        suite = tools.load_suite()
+        case = next(c for c in suite.cases if c.case_id == "error-recovery-01")
+        client = FakeClient([
+            _chat_response(tool_calls=[_tool_call(
+                "get_product_price", {"sku": "PX-2291"}, "c1"
+            )]),
+            _chat_response(tool_calls=[_tool_call(
+                "get_product_price", {"sku": "SKU-2291"}, "c2"
+            )]),
+            _chat_response(content='{"price": 74.25, "currency": "usd"}'),
+        ])
+        result = tools.ToolLoop(client, "m").run(suite, case)
+        self.assertEqual(result.quality, 100.0)
+        self.assertEqual(result.calls, 2)
+        self.assertEqual(result.turns, 2)
+        self.assertEqual(result.call_efficiency, 1.0)
+
+
 class ExtractionTests(unittest.TestCase):
     def test_fenced_json(self) -> None:
         parsed = tools._extract_json_object('```json\n{"a": 1}\n```')

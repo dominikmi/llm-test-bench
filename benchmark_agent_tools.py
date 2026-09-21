@@ -30,7 +30,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from statistics import mean
-from typing import Any, Final, Literal
+from typing import Any, Final, Literal, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
@@ -64,17 +64,34 @@ START_MODEL: Final = omlx.START_MODEL
 WARMUP_ENABLED: Final = omlx.WARMUP_ENABLED
 PRESETS_PATH: Final = omlx.PRESETS_PATH
 
-RESULTS_PATH: Final = Path(
-    os.getenv(
-        "OMLX_TOOLS_RESULTS",
-        str(OMLX_TOOLS_RESULTS_DIR / "omlx-tools-results.json"),
+def _artifact_paths(suite_name: str) -> tuple[Path, Path, Path, Path]:
+    """Return results, CSV, Markdown, and log paths for a suite."""
+    results = Path(
+        os.getenv(
+            "OMLX_BENCH_RESULTS",
+            str(OMLX_TOOLS_RESULTS_DIR / f"omlx-{suite_name}-results.json"),
+        )
     )
-)
-CSV_PATH: Final = RESULTS_PATH.with_suffix(".csv")
-REPORT_PATH: Final = RESULTS_PATH.with_suffix(".md")
-LOG_PATH: Final = Path(
-    os.getenv("OMLX_TOOLS_LOG", str(LOGS_DIR / "omlx-tools.log"))
-)
+    log = Path(
+        os.getenv("OMLX_BENCH_LOG", str(LOGS_DIR / f"omlx-{suite_name}.log"))
+    )
+    return results, results.with_suffix(".csv"), results.with_suffix(".md"), log
+
+
+# Rebound by resolve_report_paths() once --suite is known.
+RESULTS_PATH, CSV_PATH, REPORT_PATH, LOG_PATH = _artifact_paths("tool-use")
+
+
+def resolve_report_paths(suite_name: str) -> None:
+    """Rebind module report paths to per-suite artifacts."""
+    global RESULTS_PATH, CSV_PATH, REPORT_PATH, LOG_PATH
+    RESULTS_PATH, CSV_PATH, REPORT_PATH, LOG_PATH = _artifact_paths(suite_name)
+
+
+SUITE_FILES: Final[dict[str, str]] = {
+    "tool-use": "tool_use.json",
+    "logic": "logic.json",
+}
 
 SCHEMA_VERSION: Final = 2
 LOGGER: Final = logging.getLogger("omlx-tools-benchmark")
@@ -519,12 +536,66 @@ def _classify_call(
     return "valid", None
 
 
-class ToolLoop:
-    """Drives one model through one case's tool-calling loop."""
+class ChatTransport(Protocol):
+    """Minimal transport surface ToolLoop needs (satisfied by OmlxClient)."""
 
-    def __init__(self, client: omlx.OmlxClient, model: str) -> None:
+    _presets: dict[str, dict[str, Any]]
+
+    def _request_with_retry(
+        self,
+        method: str,
+        path: str,
+        payload: dict[str, Any] | None = None,
+    ) -> dict[str, Any]: ...
+
+
+class ToolLoop:
+    """Drives one model through a case: tool loop or single-turn logic."""
+
+    def __init__(self, client: ChatTransport, model: str) -> None:
         self._client = client
         self._model = model
+
+    def run_logic(self, case: LogicCase) -> ToolCaseResult:
+        """Single-turn reasoning case: prompt plus answer contract, no tools."""
+        messages: list[dict[str, Any]] = [
+            {
+                "role": "user",
+                "content": f"{case.task}\n\n{_answer_contract(case.answer.fields)}",
+            }
+        ]
+        started = time.perf_counter()
+        message, usage = self._chat(messages, None)
+        elapsed = time.perf_counter() - started
+        final_text = str(message.get("content") or "")
+        quality, json_answer = _grade_answer(case.answer.fields, final_text)
+        return ToolCaseResult(
+            model=self._model,
+            case_id=case.case_id,
+            category=case.category,
+            quality=round(quality, 2),
+            call_efficiency=1.0,
+            turn_efficiency=1.0,
+            waste_ratio=0.0,
+            calls=0,
+            turns=0,
+            invalid_calls=0,
+            identical_retries=0,
+            off_plan_calls=0,
+            forbidden_hits=0,
+            json_answer=json_answer,
+            terminated="answer" if final_text.strip() else "empty",
+            elapsed_seconds=round(elapsed, 3),
+            prompt_tokens=_as_int(usage.get("prompt_tokens")),
+            completion_tokens=_as_int(usage.get("completion_tokens")),
+            prompt_tokens_per_second=_as_float(
+                usage.get("prompt_tokens_per_second")
+            ),
+            output_tokens_per_second=_as_float(
+                usage.get("generation_tokens_per_second")
+            ),
+            turn_seconds=(round(elapsed, 3),),
+        )
 
     def run(self, suite: ToolUseSuite, case: ToolCase) -> ToolCaseResult:
         """Execute the case loop and grade the resulting trace."""
@@ -670,19 +741,20 @@ class ToolLoop:
         )
 
     def _chat(
-        self, messages: list[dict[str, Any]], tools: list[dict[str, Any]]
+        self, messages: list[dict[str, Any]], tools: list[dict[str, Any]] | None
     ) -> tuple[dict[str, Any], dict[str, Any]]:
-        """One non-streaming chat round-trip with tool schema attached."""
+        """One non-streaming chat round-trip, optionally with tool schemas."""
         payload: dict[str, Any] = {
             "model": self._model,
             "messages": messages,
-            "tools": tools,
-            "tool_choice": "auto",
             "temperature": 0,
             "max_tokens": MAX_TOKENS,
             "stream": False,
             "chat_template_kwargs": {"enable_thinking": True},
         }
+        if tools:
+            payload["tools"] = tools
+            payload["tool_choice"] = "auto"
         sampling = self._client._presets.get(self._model.casefold(), {})
         if sampling:
             payload.update(sampling)
@@ -760,6 +832,8 @@ def report_payload(
     results: list[ToolCaseResult],
     model_parameters: dict[str, dict[str, Any]],
     presets_path: str = "",
+    suite_name: str = "tool-use",
+    case_count: int = 0,
 ) -> dict[str, Any]:
     """Build the detailed machine-readable benchmark report."""
     return {
@@ -768,9 +842,9 @@ def report_payload(
         "base_url": omlx.BASE_URL,
         "benchmark_parameters": {
             "backend": "omlx",
-            "suite": "tool-use",
+            "suite": suite_name,
             "models": list(MODELS),
-            "cases": len(load_suite().cases),
+            "cases": case_count,
             "max_tokens": MAX_TOKENS,
             "request_timeout_seconds": omlx.TIMEOUT_SECONDS,
             "stream": False,
@@ -866,9 +940,13 @@ def save_reports(
     results: list[ToolCaseResult],
     model_parameters: dict[str, dict[str, Any]],
     presets_path: str = "",
+    suite_name: str = "tool-use",
+    case_count: int = 0,
 ) -> None:
     """Persist detailed JSON, CSV, and Markdown reports after every case."""
-    payload = report_payload(results, model_parameters, presets_path)
+    payload = report_payload(
+        results, model_parameters, presets_path, suite_name, case_count
+    )
     atomic_write(RESULTS_PATH, json.dumps(payload, indent=2) + "\n")
     if results:
         write_csv(results)
@@ -971,11 +1049,25 @@ def main(argv: list[str] | None = None) -> int:
         default=PRESETS_PATH,
         help="Load per-model sampling presets from an INI file",
     )
+    parser.add_argument(
+        "--suite",
+        choices=sorted(SUITE_FILES),
+        default="tool-use",
+        help="Benchmark suite to run: simulated tool-use or single-turn logic",
+    )
     args = parser.parse_args(argv if argv is not None else sys.argv[1:])
+    suite_name: str = args.suite
+    resolve_report_paths(suite_name)
+    tool_suite: ToolUseSuite | None = None
+    suite_cases: tuple[ToolCase | LogicCase, ...]
     try:
-        suite = load_suite()
+        if suite_name == "logic":
+            suite_cases = load_logic_suite().cases
+        else:
+            tool_suite = load_suite()
+            suite_cases = tool_suite.cases
     except ValueError as error:
-        print(f"Cannot load tool-use suite: {error}", file=sys.stderr)
+        print(f"Cannot load {suite_name} suite: {error}", file=sys.stderr)
         return 1
     presets_path = args.presets
     presets: dict[str, dict[str, Any]] = {}
@@ -1006,11 +1098,12 @@ def main(argv: list[str] | None = None) -> int:
     else:
         active_models = MODELS
     LOGGER.info(
-        "Benchmark start endpoint=%s suite=tool-use models=%d cases=%d "
+        "Benchmark start endpoint=%s suite=%s models=%d cases=%d "
         "resumed=%d timeout=%.0fs",
         omlx.BASE_URL,
+        suite_name,
         len(active_models),
-        len(suite.cases),
+        len(suite_cases),
         len(results),
         omlx.TIMEOUT_SECONDS,
     )
@@ -1034,14 +1127,20 @@ def main(argv: list[str] | None = None) -> int:
             if load_seconds:
                 model_parameters[model]["model_load_seconds"] = load_seconds
         loop = ToolLoop(client, model)
-        for case_index, case in enumerate(suite.cases, start=1):
+        case_iter: list[ToolCase | LogicCase] = list(suite_cases)
+        for case_index, case in enumerate(case_iter, start=1):
             if (model, case.case_id) in completed:
                 LOGGER.info(
                     "Case skipped from resume model=%s case=%s", model, case.case_id
                 )
                 continue
             try:
-                result = loop.run(suite, case)
+                if isinstance(case, LogicCase):
+                    result = loop.run_logic(case)
+                elif tool_suite is not None:
+                    result = loop.run(tool_suite, case)
+                else:
+                    raise ValueError("tool-use case without loaded suite")
                 if not loaded_once and client.last_model_load_seconds:
                     model_parameters[model]["model_load_seconds"] = (
                         client.last_model_load_seconds
@@ -1053,7 +1152,7 @@ def main(argv: list[str] | None = None) -> int:
                     model,
                     case.case_id,
                     case_index,
-                    len(suite.cases),
+                    len(suite_cases),
                     result.quality,
                     result.calls,
                     result.turns,
@@ -1094,7 +1193,10 @@ def main(argv: list[str] | None = None) -> int:
                     "Case failed model=%s case=%s: %s", model, case.case_id, error
                 )
             results.append(result)
-            save_reports(results, model_parameters, presets_path)
+            save_reports(
+                results, model_parameters, presets_path, suite_name,
+                len(suite_cases),
+            )
     print_summary(results)
     LOGGER.info("JSON report: %s", RESULTS_PATH.resolve())
     LOGGER.info("CSV report: %s", CSV_PATH.resolve())
