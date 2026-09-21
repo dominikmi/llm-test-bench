@@ -36,7 +36,16 @@ no tools exist in this suite, so there is nothing to waste. Omitted.
 
 ## The findings that matter
 
-### 1. `causal-07b` remains unbeaten — the suite's best discriminator
+### 1. `causal-07b` remains unbeaten — ⚠ corrected: a grading artifact
+
+> **Correction (2026-09-21, agent-preset run):** once `extracted_answer`
+> storage exposed the actual answers, every model turned out to have the
+> *substance* right — they lose the `door_now` point answering boolean
+> `false` where the grader expects enum `"closed"` (the task asks "is the
+> door open?", inviting a boolean). `causal-07b` measures answer-format
+> guessing, not counterfactual reasoning. See
+> `reports/OMLX_LOGIC_AGENT_2026-09-21.md`. The analysis below is retained
+> for the record but its "reasoning gap" framing is superseded.
 
 Two-step counterfactual: door opens if card valid OR code correct, *unless
 lockdown seals it*. Required: `door_now=closed` **and**
