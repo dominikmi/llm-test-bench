@@ -113,10 +113,14 @@ architectural, not a bug.
   and Qwen3.6 share identical sampling (`temp 0.6, top_p 0.95, top_k 20`),
   so differences among them are weights, not tuning. Gemma runs hotter
   (`temp 0.8, top_k 64, min_p 0.05, rep_pen 1.05`) — consistent with its
-  verbosity, but not isolated as a cause. Devstral has **no preset at
-  all** — it ran on its `devstral-code` server-profile defaults, which are
-  undocumented; its results were measured under unknown sampling. Adding
-  an explicit entry would close that control gap.
+  verbosity, but not isolated as a cause. Both profile-alias models run
+  server-side profile sampling (values from `~/.omlx/model_profiles.json`):
+  Devstral's `devstral-code` profile is temp 0.15, top_k off, **thinking
+  disabled** — near-greedy commit-first decoding; Bonsai's `bonsai2-coder`
+  profile is temp 0.3, top_p 0.9, thinking on (8192-token budget), with
+  the preset overriding `reasoning_effort`/`max_tokens` only. To compare
+  all six under identical sampling, preset entries would need to override
+  the profiles.
 - Throughput: profile aliases ran slowest (Devstral 12.3, Bonsai 22.4 out
   tok/s) — but this is dense-vs-MoE architecture, not profile overhead:
   the four leaders are all MoE (3–4B active params), Devstral and Bonsai

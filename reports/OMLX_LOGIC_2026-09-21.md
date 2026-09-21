@@ -93,16 +93,18 @@ totals are an outlier: 33,748 completion tokens / 540 s — more than Qwen
 place. The two cap-hit zeros remain confounded, but the *pattern* — verbose
 deliberation without a stopping criterion — is itself the finding.
 
-### 4. Devstral's instant-commit pattern is confirmed, not truncation
+### 4. Devstral's instant-commit pattern is configured, not incidental
 
 All 8 of Devstral's genuine failures came in at **11–25 completion tokens**
-— it emits an answer without deliberating: `state-sim-06a/b` (0 each, 11
-tokens — it guesses the final box), `knights-cookie-01b` (0, 11 tok),
-`operator-09a` (0, 13 tok), `syllogism-02a` (0, 22 tok). When it *does*
-reason it can succeed — `schedule-03a` took 1,501 tokens / 124 s and scored
-100 — but the default behavior is commit-first. Notably it *fixed* its
-run-1 `ordering-05a` overclaim (0→100 at 35 tokens) — instant answers are
-sometimes right, which makes the failure mode harder to detect in practice.
+— `state-sim-06a/b` (0 each, 11 tokens), `knights-cookie-01b` (0, 11 tok),
+`operator-09a` (0, 13 tok), `syllogism-02a` (0, 22 tok). The mechanism is
+now known: its `devstral-code` profile runs with **no thinking channel at
+temperature 0.15** — near-greedy decoding with no reasoning phase.
+When it *does* write more it can succeed — `schedule-03a` took 1,501 tokens
+/ 124 s and scored 100 — but the profile's default behavior is commit-
+first, which is exactly right for code completion and wrong for logic
+puzzles. Its run-1 `ordering-05a` overclaim corrected itself at 4096
+(0→100, 35 tokens) — even near-greedy decoding flips borderline calls.
 
 ## Per-category means (equal budget)
 
@@ -162,8 +164,12 @@ runs and the tool-use run):
 | Tiel | 0.6 | 0.95 | 20 | 0 | 1.0 | MTP architecture |
 | Gemma | **0.8** | 0.95 | **64** | **0.05** | **1.05** | hottest sampling in field |
 | Qwen3.6 | 0.6 | 0.95 | 20 | 0 | 1.0 | MTP, reasoning-distilled |
-| Devstral | — | — | — | — | — | **no preset — server profile defaults** |
-| Bonsai | — | — | — | — | — | `reasoning_effort=medium`, cap 4096 |
+| Devstral | **0.15** | 0.95 | 0 (off) | 0.01 | 1.0 | `devstral-code` profile: **thinking disabled**, near-greedy |
+| Bonsai | **0.3** | 0.9 | 20 | 0.05 | 1.0 | `bonsai2-coder` profile: thinking on (8192 budget), DFlash; preset adds `reasoning_effort=medium`, cap 4096 |
+
+*Profile values read from `~/.omlx/model_profiles.json` — the benchmark does
+not send sampling params for profile-alias models, so these server-side
+settings apply.*
 
 **Credible claims:**
 
@@ -184,12 +190,28 @@ runs and the tool-use run):
   its flips were larger in magnitude and it alone failed to terminate at
   4096 twice. Consistent with wider sampling producing longer, less
   constrained deliberation — plausible mechanism, single model, not proven.
-- **Devstral has no preset — it ran on the `devstral-code` server
-  profile's defaults, which are unknown to this benchmark.** Its
-  instant-commit pattern (11–25 tokens on failures) cannot be attributed
-  to sampling, but the *absence of an explicit preset is a control gap*:
-  its results were measured under different, undocumented conditions than
-  the rest of the field. Recommend adding an explicit entry to normalize.
+- **Devstral's instant-commit pattern is explained by its profile.** The
+  `devstral-code` profile runs with no thinking channel at temperature
+  0.15 (near-greedy) — the model is *served* as a commit-first
+  code generator, and its 11–25-token failures are the configuration
+  behaving as designed, not a hidden defect. Two implications: (a) its
+  69.05 is close to a floor for this profile on deliberation tasks —
+  raising quality would require thinking-capable settings, not just more
+  output tokens; (b) its observed case flips between runs (e.g.
+  `ordering-05a` 0→100) happen despite near-greedy sampling — even temp
+  0.15 does not fully eliminate variance.
+- **Bonsai's advantage is stacked, not singular.** Its profile already
+  runs the coldest sampling after Devstral (`temp 0.3`), thinking enabled
+  with an 8192-token budget, *and* the preset adds `reasoning_effort=
+  medium` plus the 4096 output cap. Its 97.62 reflects "best-tuned,
+  thinking-enabled Bonsai" — the same caveat the review benchmark carries.
+  Note the profile's thinking budget (8192) exceeds the benchmark's output
+  cap (4096): thinking and answer share one completion budget, so the
+  effective reasoning room was narrower than the profile implies.
+- **The remaining control gap is comparability, not secrecy.** Profile
+  values are now documented above, but they still differ from the trio's
+  explicit preset — to compare all six under identical sampling, add
+  preset entries overriding the profiles.
 
 **Not credible from this data:**
 

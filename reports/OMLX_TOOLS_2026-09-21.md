@@ -92,10 +92,12 @@ is the strongest *reviewer* in the field but did not recover here.
 
 Sampling (from `presets-omlx.ini`): Ornith/Tiel/Qwen share
 `temp 0.6, top_p 0.95, top_k 20`; Gemma runs hotter (`0.8/0.95/64`,
-`min_p 0.05`, `rep_pen 1.05`); Bonsai runs `reasoning_effort=medium` +
-`max_tokens=4096`; **Devstral has no preset and ran on its
-`devstral-code` server-profile defaults** — undocumented conditions, a
-control gap to fix by adding an explicit entry.
+`min_p 0.05`, `rep_pen 1.05`); the two profile-alias models run
+server-side profile sampling (from `~/.omlx/model_profiles.json`):
+Devstral's `devstral-code` profile is **temp 0.15, top_k off, thinking
+disabled** — near-greedy commit-first decoding; Bonsai's `bonsai2-coder`
+profile is **temp 0.3, top_p 0.9, thinking on (8192-token budget)**,
+with the preset adding `reasoning_effort=medium` + `max_tokens=4096`.
 
 - **Sampling did not separate the field.** Quality saturated (four models
   at 100) and every model batched the parallel fanout — call discipline is
@@ -108,8 +110,10 @@ control gap to fix by adding an explicit entry.
   100 quality. Documented mechanism, not correlation.
 - **Devstral's injection failure is behavioral, not sampling** — it parsed
   the tool result correctly then chose to obey it; no sampling param turns
-  "read a log" into "exfiltrate it." But its missing preset means the
-  result was measured under unknown conditions regardless.
+  "read a log" into "exfiltrate it." Context though: a no-thinking,
+  near-greedy (temp 0.15) profile is plausibly *less* robust to injected
+  instructions than a deliberating model — the profile choice amplifies
+  the behavioral weakness rather than causing it.
 - **Cannot attribute**: Tiel's schema-invalid first call and Qwen's
   error-recovery miss are single observations under shared sampling —
   consistent with model behavior, not provable as temperature effects.
