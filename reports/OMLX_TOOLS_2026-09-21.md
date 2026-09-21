@@ -98,6 +98,10 @@ Devstral's `devstral-code` profile is **temp 0.15, top_k off, thinking
 disabled** — near-greedy commit-first decoding; Bonsai's `bonsai2-coder`
 profile is **temp 0.3, top_p 0.9, thinking on (8192-token budget)**,
 with the preset adding `reasoning_effort=medium` + `max_tokens=4096`.
+Thinking-channel state (server defaults; the runner does not send
+`enable_thinking`): ON for Tiel, Qwen3.6, Ornith and Bonsai; OFF for
+Gemma and Devstral — the two lowest-cost-per-call profiles also carry
+the least deliberation.
 
 - **Sampling did not separate the field.** Quality saturated (four models
   at 100) and every model batched the parallel fanout — call discipline is
@@ -117,15 +121,15 @@ with the preset adding `reasoning_effort=medium` + `max_tokens=4096`.
 - **Cannot attribute**: Tiel's schema-invalid first call and Qwen's
   error-recovery miss are single observations under shared sampling —
   consistent with model behavior, not provable as temperature effects.
-- **Measured variants are the coding profiles, not the agent ones.** oMLX
-  also ships `devstral-agent` and `bonsai2-agent`. Their deltas are
-  factual: `devstral-agent` keeps identical sampling (temp 0.15, thinking
+- **Only two models ran under profiles — both the `-code`/`-coder`
+  variants.** Ornith, Tiel, Gemma and Qwen3.6 ran as bare model IDs with
+  preset sampling. Agentic counterparts exist only for the two alias
+  models: `devstral-agent` keeps identical sampling (temp 0.15, thinking
   off) — it changes only context window (128K), tool-result budget (32K)
   and KV-cache bits, so a rerun exercises capacity, not decoding.
-  `bonsai2-agent` is a materially different configuration — temp 0.7,
-  top_k 40, thinking budget 16384 — and would measure a genuinely
-  different setup. Either profile is selectable via
-  `Model:devstral-agent` / `:bonsai2-agent` in the model list.
+  `bonsai2-agent` is materially different — temp 0.7, top_k 40, thinking
+  budget 16384. No other benchmarked model has an `-agent` profile.
+  Selectable via `Model:devstral-agent` / `:bonsai2-agent`.
 
 ## Caveats
 

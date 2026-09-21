@@ -82,16 +82,23 @@ Ornith/Qwen/Gemma gap (91.27 vs 88.89 vs 88.10) is within that band — treat
 ranks 3–5 as a cluster, not an ordering. The Devstral gap (−19.8 vs rank 5)
 is not noise.
 
-### 3. Gemma doesn't terminate — budget wasn't its only problem
+A second correction to the run-1 reading: Ornith's truncations were not
+"verbosity" — its server default is thinking *enabled with the budget
+disabled*, so unbounded reasoning consumed the 1024 cap. At 4096 it
+finishes cleanly (zero cap hits).
+
+### 3. Gemma doesn't terminate — and it isn't even thinking
 
 Gemma converted all 7 resolvable truncations to 100 — but then hit the
 **4096 cap twice**: `schedule-03a` (which it had *passed* at 930 tokens in
 run 1 — it talked itself out of a correct answer) and `ordering-05a`, the
-epistemic-discipline case where it apparently never stops enumerating. Its
-totals are an outlier: 33,748 completion tokens / 540 s — more than Qwen
-(5,470 / 78 s) and Devstral (2,720 / 245 s) combined. Highest cost, 5th
-place. The two cap-hit zeros remain confounded, but the *pattern* — verbose
-deliberation without a stopping criterion — is itself the finding.
+epistemic-discipline case where it apparently never stops enumerating.
+Crucially, `model_settings.json` shows Gemma runs with **thinking
+disabled** — those 33,748 completion tokens are verbose *direct output*,
+not a reasoning loop. Its totals are an outlier: 540 s elapsed — more than
+Qwen (78 s) and Devstral (245 s) combined. Highest cost, 5th place — yet it
+reached 88.10 *without* a thinking channel: its remaining misses are
+non-termination, not reasoning errors.
 
 ### 4. Devstral's instant-commit pattern is configured, not incidental
 
@@ -167,9 +174,17 @@ runs and the tool-use run):
 | Devstral | **0.15** | 0.95 | 0 (off) | 0.01 | 1.0 | `devstral-code` profile: **thinking disabled**, near-greedy |
 | Bonsai | **0.3** | 0.9 | 20 | 0.05 | 1.0 | `bonsai2-coder` profile: thinking on (8192 budget), DFlash; preset adds `reasoning_effort=medium`, cap 4096 |
 
-*Profile values read from `~/.omlx/model_profiles.json` — the benchmark does
-not send sampling params for profile-alias models, so these server-side
-settings apply.*
+*Profile values read from `~/.omlx/model_profiles.json`; bare-model defaults
+from `~/.omlx/model_settings.json` — the benchmark does not send sampling
+params for profile-alias models, so these server-side settings apply.*
+
+**Thinking-channel state** (server-side defaults — the runner never sends
+`enable_thinking`): **ON** — Tiel (4096 budget), Qwen3.6 (4096), Ornith
+(enabled, *budget disabled* — nominally unbounded), Bonsai (8192 +
+`reasoning_effort=medium`). **OFF** — Gemma, Devstral. This axis alone
+explains two run-1 mysteries: Ornith's truncations (unbounded thinking ate
+the 1024 cap) and Gemma's non-termination (no reasoning phase — its long
+outputs are verbose *prose*, not deliberation).
 
 **Credible claims:**
 
@@ -208,14 +223,18 @@ settings apply.*
   Note the profile's thinking budget (8192) exceeds the benchmark's output
   cap (4096): thinking and answer share one completion budget, so the
   effective reasoning room was narrower than the profile implies.
-- **The measured variants are the coding profiles, not the agent ones.**
-  oMLX also ships `devstral-agent` and `bonsai2-agent`. Factual deltas:
-  `devstral-agent` keeps identical sampling (temp 0.15, thinking off) —
-  only context (128K), tool-result budget (32K) and KV-cache bits differ,
-  so a rerun exercises capacity, not decoding. `bonsai2-agent` is
-  materially different — temp 0.7, top_k 40, thinking budget 16384 — a
-  genuinely different configuration. Selectable via
-  `Model:devstral-agent` / `:bonsai2-agent` in the model list.
+- **Only two models ran under profiles at all — and both were the
+  `-code`/`-coder` variants.** Ornith, Tiel, Gemma and Qwen3.6 ran as
+  bare model IDs with preset sampling; no profile applied. The agentic
+  counterparts exist only for the two alias models: `devstral-agent`
+  keeps identical sampling (temp 0.15, thinking off) — only context
+  (128K), tool-result budget (32K) and KV-cache bits differ, so a rerun
+  exercises capacity, not decoding. `bonsai2-agent` is materially
+  different — temp 0.7, top_k 40, thinking budget 16384. The other four
+  models have no `-agent` profiles defined (they ship `critic`,
+  `verifier`, `security-reviewer` roles instead — or none, for Qwen3.6).
+  Selectable via `Model:devstral-agent` / `:bonsai2-agent` in the model
+  list.
 - **The remaining control gap is comparability, not secrecy.** Profile
   values are now documented above, but they still differ from the trio's
   explicit preset — to compare all six under identical sampling, add
