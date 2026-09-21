@@ -1,21 +1,44 @@
 # Model Testing Suite
 
-Benchmarks for comparing LLMs on code review, agentic tool use, and math, across
-two serving stacks: **Galileo** (remote llama.cpp server at
+Benchmarks for comparing LLMs on code review, agentic tool use, logic, and math,
+across two serving stacks: **Galileo** (remote llama.cpp server at
 `<llama-server>:8080/v1`) and **oMLX** (local MLX server on macOS at
 `127.0.0.1:8000/v1`).
 
-## Benchmarks
+## One entry point: `bench.py`
 
-| Script | Target | What it measures |
-|---|---|---|
-| `benchmark_galileo_reviews.py` | Galileo (llama.cpp) | Code-review quality/security via direct chat completions |
-| `benchmark_omlx_reviews.py` | oMLX (local MLX) | Same review cases on local models, streaming metrics |
-| `benchmark_opencode_agents.py` | OpenCode agent → Galileo | Review quality *plus* MCP tool compliance (Serena + Headroom) |
-| `math_bench_galileo_reviews.py` | Galileo | 10 applied math problems, exact/numeric answer match |
-| `judge_ab_test.py` | Galileo subject, oMLX judges | A/B: scores one model under two judge profiles |
-| `test-whittle.py` | Galileo | Speculative-decoding probe for a whittle-MoE + drafter pair |
-| `test_galileo_models.py` | Galileo | Live smoke test that every configured model responds |
+All runners are dispatched through a single orchestrator. Benches are named
+`<backend>-<what>`; everything after the bench name is forwarded verbatim to
+the runner's own argparse:
+
+```bash
+bench.py <bench> [runner args...]
+```
+
+| Bench | Runner | Target | What it measures |
+|---|---|---|---|
+| `omlx-review` | `benchmark_omlx_reviews.py` | oMLX | Quality+security review (20 cases/lang), judge optional |
+| `galileo-review` | `benchmark_galileo_reviews.py` | Galileo | Same review cases on router-hosted models |
+| `omlx-tools` | `benchmark_agent_tools.py --suite tool-use` | oMLX | Tool-calling discipline: plan adherence, schema validity, injection resistance |
+| `omlx-logic` | `benchmark_agent_tools.py --suite logic` | oMLX | 21 deterministic reasoning cases, typed-answer grading |
+| `omlx-agent` | `benchmark_agent_tools.py` | oMLX | Both agentic suites; pass `--suite` explicitly |
+| `galileo-pipeline` | `benchmark_opencode_agents.py` | Galileo via OpenCode | Full agentic pipeline: review quality + MCP tool compliance (Serena + Headroom) |
+| `galileo-math` | `math_bench_galileo_reviews.py` | Galileo | 10 applied math problems, exact/numeric answer match |
+
+```bash
+bench.py omlx-review --lang python --judge yes --presets config/presets-omlx-coder.ini
+bench.py omlx-tools --presets config/presets-omlx-agent.ini
+bench.py galileo-pipeline --lang python
+```
+
+Utilities not exposed via `bench.py` (no `main(argv)` contract or one-off
+probes): `judge_ab_test.py` (A/B two judge profiles on one subject),
+`test-whittle.py` (speculative-decoding probe), `test_galileo_models.py`
+(live smoke test).
+
+Every runner script also remains directly executable —
+`python3 benchmark_omlx_reviews.py ...` is equivalent to
+`bench.py omlx-review ...`.
 
 ## The review benchmark (shared by three runners)
 
@@ -155,6 +178,31 @@ OMLX_RETRY_FAILURES=1 python3 benchmark_omlx_reviews.py --presets --judge yes
 OMLX_THINKING=0 python3 benchmark_omlx_reviews.py --lang=cpp
 ```
 
+## `benchmark_agent_tools.py` (omlx-tools / omlx-logic)
+
+Two deterministic oMLX suites behind `--suite`:
+
+- **`tool-use`** (`test_definitions/tool_use.json`, spec
+  `docs/TOOLS_USE_TEST_SPEC.md`) — 10 cases against simulated tools with
+  OpenAI-style function calling. Scores call/turn efficiency, classifies
+  invalid calls, identical retries, off-plan calls, and forbidden-tool hits
+  (including a prompt-injection case), then grades the final JSON answer.
+- **`logic`** (`test_definitions/logic.json`, spec
+  `docs/LOGIC_TEST_SPEC.md`) — 21 single-turn reasoning cases across 10
+  categories (deduction, validity, constraints, underdetermination,
+  simulation, intervention, self-reference, symbol manipulation, planning).
+  Typed per-field grading (bool/number/enum/set/map) with partial credit;
+  no judge, no tools.
+
+Both record `extracted_answer` and `answer_text` per case in the results
+JSON (gitignored under `results/`); CSV output stays a flat metric sheet.
+Resume keys on `(model, case_id)`.
+
+```bash
+bench.py omlx-tools --presets config/presets-omlx-agent.ini
+bench.py omlx-logic --presets config/presets-omlx-coder.ini
+```
+
 ## `benchmark_opencode_agents.py`
 
 Runs the same review cases through the **OpenCode agent** (models from
@@ -204,10 +252,12 @@ results go to `results/galileo-math/`.
 
 | File | Purpose |
 |---|---|
-| `config/models.json` | Galileo router aliases (review + opencode + math benchmarks) |
+| `config/models.json` | Galileo router aliases (review + pipeline + math benchmarks) |
 | `config/models-omlx.json` | oMLX model IDs, including `:profile` aliases |
 | `config/presets.ini` | llama.cpp per-model request sampling for Galileo runs |
-| `config/presets-omlx.ini` | oMLX-native request sampling for bare model IDs |
+| `config/presets-omlx.ini` | oMLX request sampling for bare model IDs (original baseline) |
+| `config/presets-omlx-coder.ini` | Client-side "coder" profile: explicit per-request overrides replicating the as-tested config (uniform `thinking-budget=4096` where supported) |
+| `config/presets-omlx-agent.ini` | Client-side "agentic" profile: hotter sampling + larger thinking budgets, injected per-request to overrule server defaults |
 
 oMLX presets use request fields only (`temperature`, `top_p`, `top_k`,
 `min_p`, `repetition_penalty`, `enable_thinking`, `thinking_budget`,
@@ -278,6 +328,7 @@ reproducible sampling; it is not set by default.
 |---|---|
 | galileo | `GALILEO_BASE_URL`, `GALILEO_API_KEY`, `GALILEO_MAX_TOKENS` (700), `GALILEO_THINKING_BUDGET` (256), `GALILEO_START_MODEL`, `GALILEO_RETRY_FAILURES`, `GALILEO_PRESETS`, `GALILEO_JUDGE_{MODEL,BASE_URL,API_KEY,MAX_TOKENS,TIMEOUT}`, `GALILEO_REVIEW_RESULTS`, `GALILEO_REVIEW_LOG` |
 | omlx | `OMLX_BASE_URL`, `OMLX_API_KEY`, `OMLX_MAX_TOKENS` (1024), `OMLX_THINKING` (1), `OMLX_THINKING_BUDGET` (256), `OMLX_WARMUP` (1), `OMLX_START_MODEL`, `OMLX_RETRY_FAILURES`, `OMLX_MODELS`, `OMLX_PRESETS`, `OMLX_JUDGE_{MODEL,BASE_URL,API_KEY,TIMEOUT}`, `OMLX_NO_THINKING_MODELS`, `OMLX_NO_SCHEMA_MODELS`, `OMLX_REVIEW_RESULTS`, `OMLX_REVIEW_LOG` |
+| omlx agentic suites | `OMLX_MODELS`, `OMLX_MAX_TOKENS`, `OMLX_BENCH_RESULTS`, `OMLX_BENCH_LOG`, `OMLX_START_MODEL`, plus the shared `OMLX_BASE_URL`/`OMLX_API_KEY` |
 | opencode | `OPENCODE_SESSION_MODES`, `OPENCODE_CASE_TIMEOUT` (360s), `OPENCODE_MAX_AGENT_STEPS` (8), `OPENCODE_RETRY_FAILURES` (1) |
 
 All scripts also accept `--presets [path]` and `--lang {python,javascript,rust,cpp,ruby}`
@@ -320,9 +371,9 @@ helper shared by all three review runners.
 ## Verification
 
 ```bash
-python3 -m unittest test_benchmark_galileo_reviews.py test_benchmark_opencode_agents.py test_benchmark_omlx_reviews.py
+python3 -m unittest test_benchmark_galileo_reviews.py test_benchmark_opencode_agents.py test_benchmark_omlx_reviews.py test_benchmark_agent_tools.py test_bench.py
 
-ruff check benchmark_paths.py benchmark_galileo_reviews.py benchmark_omlx_reviews.py benchmark_opencode_agents.py math_bench_galileo_reviews.py judge_ab_test.py test_benchmark_galileo_reviews.py test_benchmark_omlx_reviews.py test_benchmark_opencode_agents.py test_galileo_models.py review_definitions.py
+ruff check benchmark_paths.py bench.py benchmark_galileo_reviews.py benchmark_omlx_reviews.py benchmark_opencode_agents.py benchmark_agent_tools.py math_bench_galileo_reviews.py judge_ab_test.py test_benchmark_galileo_reviews.py test_benchmark_omlx_reviews.py test_benchmark_opencode_agents.py test_benchmark_agent_tools.py test_bench.py test_galileo_models.py review_definitions.py
 mypy <same file list>
 ```
 

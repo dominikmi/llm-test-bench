@@ -2,7 +2,7 @@
 
 ## Layout
 
-- `bench.py` is the single entry point: `bench.py <bench> [runner args]` dispatches to `reviews`, `galileo`, `agent`, `tools`, `logic`, `opencode`, or `math`. `tools`/`logic` alias `agent --suite tool-use|logic`. Individual runners remain directly runnable.
+- `bench.py` is the single entry point: `bench.py <bench> [runner args]` with benches named `<backend>-<what>`: `omlx-review`, `galileo-review`, `omlx-tools`, `omlx-logic`, `omlx-agent`, `galileo-pipeline`, `galileo-math`. `omlx-tools`/`omlx-logic` alias `omlx-agent --suite tool-use|logic`. Individual runners remain directly runnable.
 - Benchmark runners and support modules remain at the project root.
 - `config/` contains model lists, active presets, and preset snapshots.
 - `test_definitions/` contains static JSON review cases per language (`<lang>.json`), the tool-use suite (`tool_use.json`, spec `docs/TOOLS_USE_TEST_SPEC.md`), and the logic suite (`logic.json`, spec `docs/LOGIC_TEST_SPEC.md`).

@@ -35,20 +35,20 @@ class DispatchTests(unittest.TestCase):
         self.assertEqual(len(calls), 1)
         return calls[0]
 
-    def test_reviews_routes_to_omlx_runner(self) -> None:
+    def test_omlx_review_routes_to_omlx_runner(self) -> None:
         module, runner_argv = self._run(
-            ["reviews", "--lang", "python", "--judge", "yes"]
+            ["omlx-review", "--lang", "python", "--judge", "yes"]
         )
         self.assertEqual(module, "benchmark_omlx_reviews")
         self.assertEqual(runner_argv, ["--lang", "python", "--judge", "yes"])
 
-    def test_galileo_routes_to_galileo_runner(self) -> None:
-        module, _ = self._run(["galileo"])
+    def test_galileo_review_routes_to_galileo_runner(self) -> None:
+        module, _ = self._run(["galileo-review"])
         self.assertEqual(module, "benchmark_galileo_reviews")
 
-    def test_tools_alias_injects_suite(self) -> None:
+    def test_omlx_tools_injects_suite(self) -> None:
         module, runner_argv = self._run(
-            ["tools", "--presets", "config/presets-omlx-agent.ini"]
+            ["omlx-tools", "--presets", "config/presets-omlx-agent.ini"]
         )
         self.assertEqual(module, "benchmark_agent_tools")
         self.assertEqual(
@@ -56,19 +56,21 @@ class DispatchTests(unittest.TestCase):
             ["--suite", "tool-use", "--presets", "config/presets-omlx-agent.ini"],
         )
 
-    def test_logic_alias_injects_suite(self) -> None:
-        module, runner_argv = self._run(["logic"])
+    def test_omlx_logic_injects_suite(self) -> None:
+        module, runner_argv = self._run(["omlx-logic"])
         self.assertEqual(module, "benchmark_agent_tools")
         self.assertEqual(runner_argv, ["--suite", "logic"])
 
     def test_explicit_suite_not_duplicated(self) -> None:
-        _, runner_argv = self._run(["agent", "--suite", "logic"])
+        _, runner_argv = self._run(["omlx-agent", "--suite", "logic"])
         self.assertEqual(runner_argv, ["--suite", "logic"])
 
-    def test_opencode_and_math_route(self) -> None:
-        self.assertEqual(self._run(["opencode"])[0], "benchmark_opencode_agents")
+    def test_pipeline_and_math_route(self) -> None:
         self.assertEqual(
-            self._run(["math"])[0], "math_bench_galileo_reviews"
+            self._run(["galileo-pipeline"])[0], "benchmark_opencode_agents"
+        )
+        self.assertEqual(
+            self._run(["galileo-math"])[0], "math_bench_galileo_reviews"
         )
 
     def test_unknown_bench_rejected(self) -> None:
