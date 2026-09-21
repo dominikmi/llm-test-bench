@@ -82,16 +82,21 @@ MODELS: Final[tuple[str, ...]] = load_models(MODELS_PATH)
 
 
 class FieldSpec(BaseModel):
-    """Typed expectation for one answer field."""
+    """Typed expectation for one answer field.
+
+    `map` fields nest leaf specs under `fields`; grading flattens them to
+    dotted names so each leaf earns partial credit independently.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
-    type: Literal["number", "enum", "string", "boolean"]
+    type: Literal["number", "enum", "string", "boolean", "set", "map"]
     value: float | bool | None = None
     values: tuple[str, ...] = ()
     expect: str = ""
     any_of: tuple[str, ...] = ()
     tolerance: float = 0.0
+    fields: dict[str, FieldSpec] = Field(default_factory=dict)
 
 
 class AnswerSpec(BaseModel):
@@ -169,6 +174,44 @@ class ToolUseSuite(BaseModel):
     description: str = ""
     tools: dict[str, ToolDef]
     cases: tuple[ToolCase, ...]
+
+
+class LogicCase(BaseModel):
+    """One pure-reasoning case: prompt plus typed answer contract."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    case_id: str
+    category: str
+    difficulty: Literal["floor", "standard", "hard"] = "standard"
+    task: str
+    answer: AnswerSpec
+    notes: str = ""
+
+
+class LogicSuite(BaseModel):
+    """Top-level logic suite: no tools, no mocks — answer grading only."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    suite: str
+    version: int
+    description: str = ""
+    cases: tuple[LogicCase, ...]
+
+
+def load_logic_suite(
+    path: Path = TEST_DEFINITIONS_DIR / "logic.json",
+) -> LogicSuite:
+    """Load and validate the logic suite definition."""
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise ValueError(f"Cannot read suite {path}: {error}") from error
+    try:
+        return LogicSuite.model_validate(raw)
+    except ValidationError as error:
+        raise ValueError(f"Invalid suite {path}: {error}") from error
 
 
 @dataclass
@@ -360,6 +403,30 @@ def _extract_json_object(text: str) -> dict[str, Any] | None:
     return None
 
 
+def _flatten_fields(
+    fields: dict[str, FieldSpec], prefix: str = ""
+) -> dict[str, FieldSpec]:
+    """Expand map fields into dotted leaf names for grading."""
+    flat: dict[str, FieldSpec] = {}
+    for name, spec in fields.items():
+        key = f"{prefix}{name}"
+        if spec.type == "map":
+            flat.update(_flatten_fields(spec.fields, prefix=f"{key}."))
+        else:
+            flat[key] = spec
+    return flat
+
+
+def _lookup_path(data: dict[str, Any], dotted: str) -> Any:
+    """Resolve a dotted leaf name against a nested answer object."""
+    node: Any = data
+    for part in dotted.split("."):
+        if not isinstance(node, dict):
+            return None
+        node = node.get(part)
+    return node
+
+
 def _field_matches(spec: FieldSpec, raw: Any) -> bool:
     """Typed equality for one answer field."""
     if spec.type == "number":
@@ -375,7 +442,16 @@ def _field_matches(spec: FieldSpec, raw: Any) -> bool:
             raw = raw.strip().casefold() in {"true", "1", "yes"}
         return raw is spec.value
     if spec.type == "enum":
-        return str(raw).strip().casefold() == spec.expect.casefold()
+        accepted = {spec.expect.casefold(), *(o.casefold() for o in spec.any_of)}
+        return str(raw).strip().casefold() in accepted
+    if spec.type == "set":
+        if isinstance(raw, str):
+            raw = [raw]
+        if not isinstance(raw, (list, tuple)):
+            return False
+        return {str(item).strip().casefold() for item in raw} == {
+            str(item).casefold() for item in spec.values
+        }
     text = str(raw).casefold()
     return any(option.casefold() in text for option in spec.any_of)
 
@@ -391,6 +467,8 @@ def _field_prose_match(name: str, spec: FieldSpec, text: str) -> bool:
         needle = "true" if spec.value else "false"
     elif spec.type == "enum":
         needle = re.escape(spec.expect)
+    elif spec.type == "set":
+        needle = "|".join(re.escape(option) for option in spec.values)
     else:
         needle = "|".join(re.escape(option) for option in spec.any_of)
     pattern = rf"{re.escape(name)}\W{{0,32}}(?:{needle})"
@@ -400,19 +478,20 @@ def _field_prose_match(name: str, spec: FieldSpec, text: str) -> bool:
 def _grade_answer(
     fields: dict[str, FieldSpec], final_text: str
 ) -> tuple[float, bool]:
-    """Score the final answer against typed fields; 0-100 plus JSON flag."""
+    """Score the final answer against typed leaf fields; 0-100 + JSON flag."""
+    flat = _flatten_fields(fields)
     parsed = _extract_json_object(final_text)
     if parsed is not None:
         matched = sum(
-            _field_matches(spec, parsed.get(name))
-            for name, spec in fields.items()
+            _field_matches(spec, _lookup_path(parsed, name))
+            for name, spec in flat.items()
         )
-        return 100.0 * matched / len(fields), True
+        return 100.0 * matched / len(flat), True
     matched = sum(
-        _field_prose_match(name, spec, final_text)
-        for name, spec in fields.items()
+        _field_prose_match(name.split(".")[-1], spec, final_text)
+        for name, spec in flat.items()
     )
-    return 100.0 * matched / len(fields), False
+    return 100.0 * matched / len(flat), False
 
 
 def _classify_call(

@@ -232,6 +232,59 @@ class AnswerGradingTests(unittest.TestCase):
         self.assertEqual(quality, 0.0)
 
 
+class SetAndMapGradingTests(unittest.TestCase):
+    """Set equality, enum spelling variants, and map leaf grading."""
+
+    def test_set_exact_match(self) -> None:
+        spec = tools.FieldSpec(type="set", values=("alice", "bob", "dave"))
+        self.assertTrue(tools._field_matches(spec, ["Bob", "Dave", "Alice"]))
+
+    def test_set_rejects_subset(self) -> None:
+        spec = tools.FieldSpec(type="set", values=("alice", "bob"))
+        self.assertFalse(tools._field_matches(spec, ["alice"]))
+
+    def test_set_empty(self) -> None:
+        spec = tools.FieldSpec(type="set", values=())
+        self.assertTrue(tools._field_matches(spec, []))
+        self.assertFalse(tools._field_matches(spec, ["alice"]))
+
+    def test_enum_any_of_spellings(self) -> None:
+        spec = tools.FieldSpec(
+            type="enum", values=("1", "2"), expect="2",
+            any_of=("box2", "box 2", "box_2"),
+        )
+        self.assertTrue(tools._field_matches(spec, "box 2"))
+        self.assertFalse(tools._field_matches(spec, "box 3"))
+
+    def test_map_leaf_partial_credit(self) -> None:
+        fields = {
+            "houses": tools.FieldSpec(type="map", fields={
+                "h1": tools.FieldSpec(type="enum", expect="red"),
+                "h2": tools.FieldSpec(type="enum", expect="green"),
+            }),
+        }
+        flat = tools._flatten_fields(fields)
+        self.assertEqual(set(flat), {"houses.h1", "houses.h2"})
+        text = json.dumps({"houses": {"h1": "red", "h2": "blue"}})
+        quality, is_json = tools._grade_answer(fields, text)
+        self.assertEqual(quality, 50.0)
+        self.assertTrue(is_json)
+
+
+class LogicSuiteTests(unittest.TestCase):
+    """The logic suite must load and carry verified answers."""
+
+    def test_logic_suite_loads(self) -> None:
+        suite = tools.load_logic_suite()
+        self.assertEqual(suite.suite, "logic")
+        self.assertEqual(len(suite.cases), 21)
+
+    def test_every_case_has_fields_and_notes(self) -> None:
+        for case in tools.load_logic_suite().cases:
+            self.assertTrue(case.answer.fields, case.case_id)
+            self.assertTrue(case.notes, case.case_id)
+
+
 class ExtractionTests(unittest.TestCase):
     def test_fenced_json(self) -> None:
         parsed = tools._extract_json_object('```json\n{"a": 1}\n```')

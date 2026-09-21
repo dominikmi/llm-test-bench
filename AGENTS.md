@@ -4,7 +4,7 @@
 
 - Benchmark runners and support modules remain at the project root.
 - `config/` contains model lists, active presets, and preset snapshots.
-- `test_definitions/` contains static JSON review cases per language (`<lang>.json`) and the tool-use suite (`tool_use.json`, spec in `docs/TOOLS_USE_TEST_SPEC.md`).
+- `test_definitions/` contains static JSON review cases per language (`<lang>.json`), the tool-use suite (`tool_use.json`, spec `docs/TOOLS_USE_TEST_SPEC.md`), and the logic suite (`logic.json`, spec `docs/LOGIC_TEST_SPEC.md`).
 - `results/` contains current machine-generated benchmark artifacts grouped by benchmark.
 - `logs/` contains active operational logs.
 - `archives/` contains immutable historical run snapshots grouped by benchmark.

@@ -90,7 +90,9 @@ Each field is typed and graded with normalization:
 | Field type | Spec | Match rule |
 |---|---|---|
 | `number` | `{"value": N, "tolerance": T}` | `\|parsed − value\| ≤ T` |
-| `enum` | `{"values": [...], "expect": v}` | normalized lower-case equality |
+| `enum` | `{"values": [...], "expect": v, "any_of": [...]}` | normalized equality to `expect` or any `any_of` spelling variant |
+| `set` | `{"values": [...]}` | normalized member-set equality (empty list valid) |
+| `map` | `{"fields": {...}}` | flattens to dotted leaf fields; each leaf scores independently |
 | `string` | `{"any_of": [...]}` | case-insensitive substring of the value |
 | `boolean` | `{"value": bool}` | exact |
 

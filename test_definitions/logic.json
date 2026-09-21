@@ -1,0 +1,196 @@
+{
+  "suite": "logic",
+  "version": 1,
+  "description": "Advanced logic benchmark: deduction, constraint satisfaction, underdetermination, causal intervention, self-reference, symbol manipulation, planning. Judge-free; graded via typed answer fields per docs/LOGIC_TEST_SPEC.md. Each competency ships 2-3 instances to bound single-puzzle variance; floor-tagged cases are deliberately easy floor checks.",
+  "cases": [
+    {
+      "case_id": "knights-cookie-01a",
+      "category": "deduction",
+      "difficulty": "floor",
+      "task": "A cookie was taken by exactly one of Alice, Bob, or Carol. Each makes one statement. Alice: \"I didn't take it.\" Bob: \"Carol took it.\" Carol: \"Bob is lying.\" Exactly one of the three statements is true. Who took the cookie?",
+      "answer": {"fields": {"taker": {"type": "enum", "values": ["alice", "bob", "carol"], "expect": "alice"}}},
+      "notes": "Alice took: her statement is false, Bob's false, Carol's 'Bob is lying' is true (1 true). Bob taken: Alice+Carol true (2). Carol taken: Alice+Bob true (2). Unique solution: Alice."
+    },
+    {
+      "case_id": "knights-cookie-01b",
+      "category": "deduction",
+      "difficulty": "standard",
+      "task": "A cookie was taken by exactly one of Alice, Bob, or Carol. Each makes one statement. Alice: \"Bob took it.\" Bob: \"I didn't take it.\" Carol: \"Bob took it.\" Exactly two of the three statements are true. Who took the cookie?",
+      "answer": {"fields": {"taker": {"type": "enum", "values": ["alice", "bob", "carol"], "expect": "bob"}}},
+      "notes": "Alice took: A false, B true, C false (1). Bob took: A true, B false, C true (2). Carol took: A false, B true, C false (1). Unique solution: Bob."
+    },
+    {
+      "case_id": "syllogism-02a",
+      "category": "validity",
+      "difficulty": "standard",
+      "task": "Premises: All engineers are licensed. Some licensed people work remotely. Does it logically follow that some engineers work remotely? Answer whether the conclusion is valid, and whether a model of the premises exists in which the conclusion is false.",
+      "answer": {"fields": {"valid": {"type": "boolean", "value": false}, "countermodel_exists": {"type": "boolean", "value": true}}},
+      "notes": "Illicit middle: remote-working licensed people need not be engineers. Classic plausibility trap — the conclusion feels true but is invalid."
+    },
+    {
+      "case_id": "syllogism-02b",
+      "category": "validity",
+      "difficulty": "floor",
+      "task": "Premises: All auditors are certified. No certified professional is exempt from review. Does it logically follow that no auditor is exempt from review? Answer whether the conclusion is valid, and whether a model of the premises exists in which the conclusion is false.",
+      "answer": {"fields": {"valid": {"type": "boolean", "value": true}, "countermodel_exists": {"type": "boolean", "value": false}}},
+      "notes": "Barbara syllogism: auditor ⊆ certified ⊆ ¬exempt."
+    },
+    {
+      "case_id": "syllogism-02c",
+      "category": "validity",
+      "difficulty": "standard",
+      "task": "Premises: Some managers are engineers. All engineers are licensed. Does it logically follow that some managers are licensed? Answer whether the conclusion is valid, and whether a model of the premises exists in which the conclusion is false.",
+      "answer": {"fields": {"valid": {"type": "boolean", "value": true}, "countermodel_exists": {"type": "boolean", "value": false}}},
+      "notes": "Disamis: the managers who are engineers inherit licensed."
+    },
+    {
+      "case_id": "schedule-03a",
+      "category": "constraints",
+      "difficulty": "floor",
+      "task": "Four meetings A, B, C, D must be assigned to slots 1-4 (one per slot, in order). Constraints: A must be before B; C must be in the slot immediately after A; B must be before D; D must not be in slot 1. Give the slot for each meeting.",
+      "answer": {"fields": {"a_slot": {"type": "number", "value": 1}, "b_slot": {"type": "number", "value": 3}, "c_slot": {"type": "number", "value": 2}, "d_slot": {"type": "number", "value": 4}}},
+      "notes": "C=A+1 forces A∈{1,2}. A=2 gives C=3, but then B must be after A and before D — B=?, D=? only slot 4 remains for one of them; impossible. So A=1, C=2, then B before D fills 3,4."
+    },
+    {
+      "case_id": "schedule-03b",
+      "category": "constraints",
+      "difficulty": "standard",
+      "task": "Three events A, B, C must be scheduled in distinct time slots. Constraints: A must be before B; B must be before C; C must be before A. Is a valid schedule possible? If yes, give one; if no, explain why.",
+      "answer": {"fields": {"satisfiable": {"type": "boolean", "value": false}}},
+      "notes": "Cyclic precedence: A<B<C<A has no linear order. Tests impossibility proofs vs. hallucinated schedules."
+    },
+    {
+      "case_id": "zebra-04a",
+      "category": "elimination",
+      "difficulty": "standard",
+      "task": "Three houses numbered 1-3 left to right. Residents: Alice, Bob, Carol. Pets: cat, dog, fish (one each). Drinks: tea, coffee, juice (one each). Clues: Alice is in house 2. The cat owner drinks tea. Bob does not own the cat. Carol drinks juice. The fish owner is in house 3. Bob lives in house 1. Give each person's house, pet, and drink.",
+      "answer": {"fields": {
+        "alice_pet": {"type": "enum", "values": ["cat", "dog", "fish"], "expect": "cat"},
+        "alice_drink": {"type": "enum", "values": ["tea", "coffee", "juice"], "expect": "tea"},
+        "bob_pet": {"type": "enum", "values": ["cat", "dog", "fish"], "expect": "dog"},
+        "bob_drink": {"type": "enum", "values": ["tea", "coffee", "juice"], "expect": "coffee"},
+        "carol_pet": {"type": "enum", "values": ["cat", "dog", "fish"], "expect": "fish"},
+        "carol_drink": {"type": "enum", "values": ["tea", "coffee", "juice"], "expect": "juice"}
+      }},
+      "notes": "Bob=H1, Alice=H2, Carol=H3. Cat owner drinks tea and isn't Bob or Carol (juice) → Alice has cat+tea. Fish=H3=Carol. Bob gets dog+coffee."
+    },
+    {
+      "case_id": "zebra-04b",
+      "category": "elimination",
+      "difficulty": "floor",
+      "task": "Three houses numbered 1-3 left to right, painted red, blue, and green (one each). Clues: the blue house is immediately to the right of the green house; the red house is not in house 2; the red house is to the left of house 3. Give the color of each house.",
+      "answer": {"fields": {
+        "house1_color": {"type": "enum", "values": ["red", "blue", "green"], "expect": "red"},
+        "house2_color": {"type": "enum", "values": ["red", "blue", "green"], "expect": "green"},
+        "house3_color": {"type": "enum", "values": ["red", "blue", "green"], "expect": "blue"}
+      }},
+      "notes": "Green→blue adjacent: (1,2) or (2,3). (1,2) forces red=3, violating red<3. So green=2, blue=3, red=1."
+    },
+    {
+      "case_id": "ordering-05a",
+      "category": "underdetermination",
+      "difficulty": "standard",
+      "task": "Five runners — Alice, Bob, Carol, Dave, Eve — finished a race with no ties. Known facts: Alice finished before Bob; Bob finished before Carol; Dave finished before Carol; Carol finished before Eve. Report the finishing position of every runner whose position is fully determined, and list the runners whose position cannot be determined from these facts.",
+      "answer": {"fields": {
+        "carol": {"type": "number", "value": 4},
+        "eve": {"type": "number", "value": 5},
+        "undetermined": {"type": "set", "values": ["alice", "bob", "dave"]}
+      }},
+      "notes": "Carol needs A, B, D before her → 4th; Eve after Carol → 5th. Positions 1-3 hold A<B plus D anywhere — Alice, Bob, Dave are mutually underdetermined. Tests epistemic discipline: a model that assigns all five positions is overclaiming."
+    },
+    {
+      "case_id": "ordering-05b",
+      "category": "underdetermination",
+      "difficulty": "floor",
+      "task": "Four runners — Alice, Bob, Carol, Dave — finished a race with no ties. Known facts: Alice finished first; Bob finished before Carol; Carol finished before Dave. Report the finishing position of every runner whose position is fully determined, and list any runners whose position cannot be determined.",
+      "answer": {"fields": {
+        "alice": {"type": "number", "value": 1},
+        "bob": {"type": "number", "value": 2},
+        "carol": {"type": "number", "value": 3},
+        "dave": {"type": "number", "value": 4},
+        "undetermined": {"type": "set", "values": []}
+      }},
+      "notes": "Floor case: fully determined total order; undetermined must be an empty list. A model inventing ambiguity here fails the easy check."
+    },
+    {
+      "case_id": "state-sim-06a",
+      "category": "simulation",
+      "difficulty": "floor",
+      "task": "A ball starts in box A. Perform these swaps in order, moving the ball whenever its current box is swapped: swap A↔B; swap B↔C; swap A↔C; swap A↔B. Which box holds the ball at the end?",
+      "answer": {"fields": {"final_box": {"type": "enum", "values": ["a", "b", "c"], "expect": "b", "any_of": ["box_b", "box b"]}}},
+      "notes": "A→(A↔B)→B→(B↔C)→C→(A↔C)→A→(A↔B)→B."
+    },
+    {
+      "case_id": "state-sim-06b",
+      "category": "simulation",
+      "difficulty": "standard",
+      "task": "A coin starts in box 2 of four boxes (1-4). Perform these swaps in order, moving the coin whenever its current box is swapped: swap 2↔4; swap 1↔3; swap 3↔4; swap 2↔3. Which box holds the coin at the end?",
+      "answer": {"fields": {"final_box": {"type": "enum", "values": ["1", "2", "3", "4"], "expect": "2", "any_of": ["box2", "box 2", "box_2"]}}},
+      "notes": "2→4→4(1↔3 skips)→3(3↔4)→2(2↔3). Returns to origin — the trap is assuming motion."
+    },
+    {
+      "case_id": "causal-07a",
+      "category": "intervention",
+      "difficulty": "floor",
+      "task": "Rule: the light is on if and only if switch A AND switch B are both on — unless the breaker is off, in which case the light is off regardless. Current state: switch A is on, switch B is on, the breaker is off. Is the light on? What is the blocking cause?",
+      "answer": {"fields": {"light": {"type": "enum", "values": ["on", "off"], "expect": "off"}, "blocking_cause": {"type": "string", "any_of": ["breaker", "power"]}}},
+      "notes": "Override rule beats the AND rule. Tests attention to exception clauses."
+    },
+    {
+      "case_id": "causal-07b",
+      "category": "intervention",
+      "difficulty": "standard",
+      "task": "Rule: the door opens if the card is valid OR the code is correct — but not during lockdown, which seals the door regardless. Current state: card is invalid, code is correct, lockdown is active. Is the door open now? If the lockdown were lifted (card still invalid, code still correct), would the door open?",
+      "answer": {"fields": {"door_now": {"type": "enum", "values": ["open", "closed"], "expect": "closed"}, "door_if_lockdown_lifted": {"type": "boolean", "value": true}}},
+      "notes": "Two-step: apply override now, then counterfactual removal of the override. Tests intervention reasoning, not just rule lookup."
+    },
+    {
+      "case_id": "selfref-08a",
+      "category": "self_reference",
+      "difficulty": "hard",
+      "task": "Consider three statements. S1: \"S2 is false.\" S2: \"S3 is false.\" S3: \"S1 is false.\" Does a consistent truth-value assignment to S1, S2, S3 exist? Answer true or false.",
+      "answer": {"fields": {"consistent_assignment": {"type": "boolean", "value": false}}},
+      "notes": "Odd negation cycle: S1=T→S2=F→S3=T→S1=F, and S1=F→S2=T→S3=F→S1=T. Paradox, no consistent assignment."
+    },
+    {
+      "case_id": "selfref-08b",
+      "category": "self_reference",
+      "difficulty": "standard",
+      "task": "Evaluate the truth of each statement. S1: \"2+2=5.\" S2: \"Whales are mammals.\" S3: \"S2 is false.\" For each statement, report whether it is true or false.",
+      "answer": {"fields": {"s1_true": {"type": "boolean", "value": false}, "s2_true": {"type": "boolean", "value": true}, "s3_true": {"type": "boolean", "value": false}}},
+      "notes": "S1 false (arithmetic), S2 true (fact), S3 false (contradicts true S2). Per-statement booleans give partial credit and avoid set-spelling ambiguity."
+    },
+    {
+      "case_id": "operator-09a",
+      "category": "symbol_manipulation",
+      "difficulty": "floor",
+      "task": "Define a custom operator: a ⊕ b = (a + b) mod 5. Compute ((2 ⊕ 3) ⊕ 4) ⊕ 1.",
+      "answer": {"fields": {"result": {"type": "number", "value": 0}}},
+      "notes": "2⊕3=0, 0⊕4=4, 4⊕1=0. Invented operator — cannot be memorized."
+    },
+    {
+      "case_id": "operator-09b",
+      "category": "symbol_manipulation",
+      "difficulty": "standard",
+      "task": "Define a custom operator over integers mod 5: a ⊗ b = (a − b) mod 5. Is ⊗ commutative? Is ⊗ associative? Answer both.",
+      "answer": {"fields": {"commutative": {"type": "boolean", "value": false}, "associative": {"type": "boolean", "value": false}}},
+      "notes": "1⊗2=4 vs 2⊗1=1 disproves commutativity. (a⊗b)⊗c=a−b−c vs a⊗(b⊗c)=a−b+c disproves associativity. Requires actually testing the property, not pattern-matching to +/×."
+    },
+    {
+      "case_id": "grid-path-10a",
+      "category": "planning",
+      "difficulty": "floor",
+      "task": "A 3×3 grid with cells (row, col) numbered 1-3. Start at (1,1), goal at (3,3). Cell (2,2) is blocked. Moves: up/down/left/right, no diagonals. Is the goal reachable, and what is the shortest valid path length in moves?",
+      "answer": {"fields": {"reachable": {"type": "boolean", "value": true}, "path_length": {"type": "number", "value": 4}}},
+      "notes": "Manhattan distance is 4; valid 4-move paths exist (R,R,D,D or D,D,R,R) — the blocked center only kills the diagonal-cutting paths."
+    },
+    {
+      "case_id": "grid-path-10b",
+      "category": "planning",
+      "difficulty": "standard",
+      "task": "A 4×4 grid with cells (row, col) numbered 1-4. Start at (1,1), goal at (4,4). Blocked cells: (2,2), (3,3), (2,3). Moves: up/down/left/right, no diagonals. Is the goal reachable, and what is the shortest valid path length in moves?",
+      "answer": {"fields": {"reachable": {"type": "boolean", "value": true}, "path_length": {"type": "number", "value": 6}}},
+      "notes": "Manhattan=6; route down column 1 then across row 4 avoids all blocked cells: D,D,D,R,R,R."
+    }
+  ]
+}
