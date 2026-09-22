@@ -320,6 +320,11 @@ _SUITE_SOURCES: dict[str, str] = {
     "logic": "test_definitions/logic.json",
 }
 
+_SUITE_BENCH_NAMES: dict[str, str] = {
+    # bench.py dispatch names that differ from the recorded suite label
+    "tool-use": "tools",
+}
+
 
 def _provenance(run: RunMeta, source_path: Path) -> dict[str, str]:
     """Resolve the inputs that produced this run.
@@ -397,7 +402,7 @@ def _reproduce_command(run: RunMeta, source_path: Path) -> list[str]:
     suite = prov["suite"]
     bench = source_path.parent.name
     if suite:
-        bench = f"{backend}-{suite}"
+        bench = f"{backend}-{_SUITE_BENCH_NAMES.get(suite, suite)}"
     prefix = "GALILEO" if backend == "galileo" else "OMLX"
 
     env: list[str] = []
