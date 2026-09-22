@@ -43,6 +43,34 @@ class SuiteLoadingTests(unittest.TestCase):
             tools.ToolUseSuite.model_validate(raw)
 
 
+class CombinedSuiteTests(unittest.TestCase):
+    """The combined suite must validate and carry judge rubrics."""
+
+    combined: ClassVar = tools.load_suite(
+        tools.TEST_DEFINITIONS_DIR / "combined.json"
+    )
+
+    def test_suite_loads(self) -> None:
+        self.assertEqual(self.combined.suite, "combined")
+        self.assertGreaterEqual(len(self.combined.cases), 5)
+        self.assertGreaterEqual(len(self.combined.tools), 5)
+
+    def test_every_case_has_rubric_and_multi_dim_fields(self) -> None:
+        for case in self.combined.cases:
+            self.assertTrue(case.rubric, f"{case.case_id} missing rubric")
+            self.assertGreaterEqual(
+                len(case.grading.answer.fields), 4, case.case_id
+            )
+
+    def test_forbidden_tools_are_visible_temptations(self) -> None:
+        for case in self.combined.cases:
+            available = set(case.available_tools)
+            self.assertTrue(
+                set(case.grading.forbidden_tools).issubset(available),
+                case.case_id,
+            )
+
+
 class ArgumentValidationTests(unittest.TestCase):
     """Schema subset validator used before mock dispatch."""
 

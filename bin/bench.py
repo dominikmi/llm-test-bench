@@ -11,10 +11,12 @@ Benches (named <backend>-<what>):
                       (modules/benchmark_galileo_reviews.py)
     omlx-tools        tool-use suite on oMLX models
     omlx-logic        logic suite on oMLX models
-    omlx-agent        both agentic suites on oMLX; pass --suite explicitly
+    omlx-combined     composite quality+security+logic+tools suite on oMLX
+    omlx-agent        agentic suites on oMLX; pass --suite explicitly
     galileo-tools     tool-use suite on Galileo models
     galileo-logic     logic suite on Galileo models
-    galileo-agent     both agentic suites on Galileo; pass --suite explicitly
+    galileo-combined  composite quality+security+logic+tools suite on Galileo
+    galileo-agent     agentic suites on Galileo; pass --suite explicitly
                       (all six via modules/benchmark_agent_tools.py)
     galileo-pipeline  full agentic pipeline (OpenCode/Serena/Headroom)
                       on Galileo models
@@ -55,9 +57,11 @@ BENCH_MODULES: Final[dict[str, str]] = {
     "omlx-agent": "benchmark_agent_tools",
     "omlx-tools": "benchmark_agent_tools",
     "omlx-logic": "benchmark_agent_tools",
+    "omlx-combined": "benchmark_agent_tools",
     "galileo-agent": "benchmark_agent_tools",
     "galileo-tools": "benchmark_agent_tools",
     "galileo-logic": "benchmark_agent_tools",
+    "galileo-combined": "benchmark_agent_tools",
     "galileo-pipeline": "benchmark_opencode_agents",
     "omlx-pipeline": "benchmark_opencode_agents",
     "galileo-math": "math_bench_galileo_reviews",
@@ -69,9 +73,11 @@ BENCH_DEFAULT_ARGS: Final[dict[str, tuple[str, ...]]] = {
     "omlx-agent": ("--backend", "omlx"),
     "omlx-tools": ("--backend", "omlx", "--suite", "tool-use"),
     "omlx-logic": ("--backend", "omlx", "--suite", "logic"),
+    "omlx-combined": ("--backend", "omlx", "--suite", "combined"),
     "galileo-agent": ("--backend", "galileo"),
     "galileo-tools": ("--backend", "galileo", "--suite", "tool-use"),
     "galileo-logic": ("--backend", "galileo", "--suite", "logic"),
+    "galileo-combined": ("--backend", "galileo", "--suite", "combined"),
     "galileo-pipeline": ("--backend", "galileo"),
     "omlx-pipeline": ("--backend", "omlx"),
     "galileo-math": ("--backend", "galileo"),

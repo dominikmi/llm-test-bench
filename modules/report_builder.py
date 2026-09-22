@@ -318,6 +318,7 @@ _SUITE_SOURCES: dict[str, str] = {
     "tool-use": "test_definitions/tool_use.json",
     "tools": "test_definitions/tool_use.json",
     "logic": "test_definitions/logic.json",
+    "combined": "test_definitions/combined.json",
 }
 
 _SUITE_BENCH_NAMES: dict[str, str] = {

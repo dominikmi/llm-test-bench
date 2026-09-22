@@ -147,6 +147,7 @@ def resolve_backend(backend: str) -> None:
 SUITE_FILES: Final[dict[str, str]] = {
     "tool-use": "tool_use.json",
     "logic": "logic.json",
+    "combined": "combined.json",
 }
 
 SCHEMA_VERSION: Final = 2
@@ -222,10 +223,12 @@ class ToolCase(BaseModel):
 
     case_id: str
     category: str
+    difficulty: Literal["floor", "standard", "hard"] = "standard"
     task: str
     available_tools: tuple[str, ...]
     mocks: dict[str, tuple[MockRule, ...]]
     grading: Grading
+    rubric: str = ""
 
 
 class ToolDef(BaseModel):
@@ -260,6 +263,7 @@ class LogicCase(BaseModel):
     task: str
     answer: AnswerSpec
     notes: str = ""
+    rubric: str = ""
 
 
 class LogicSuite(BaseModel):
@@ -1206,7 +1210,12 @@ def main(argv: list[str] | None = None) -> int:
         if suite_name == "logic":
             suite_cases = load_logic_suite().cases
         else:
-            tool_suite = load_suite()
+            suite_file = (
+                SUITE_PATH
+                if suite_name == "tool-use"
+                else TEST_DEFINITIONS_DIR / SUITE_FILES[suite_name]
+            )
+            tool_suite = load_suite(suite_file)
             suite_cases = tool_suite.cases
     except ValueError as error:
         print(f"Cannot load {suite_name} suite: {error}", file=sys.stderr)

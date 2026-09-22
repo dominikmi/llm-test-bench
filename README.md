@@ -39,10 +39,12 @@ bin/bench.py <bench> [runner args...]
 | `galileo-review` | `modules/benchmark_galileo_reviews.py` | Galileo | Same review cases on router-hosted models |
 | `omlx-tools` | `modules/benchmark_agent_tools.py` | oMLX | Tool-calling discipline: plan adherence, schema validity, injection resistance |
 | `omlx-logic` | `modules/benchmark_agent_tools.py` | oMLX | 21 deterministic reasoning cases, typed-answer grading |
-| `omlx-agent` | `modules/benchmark_agent_tools.py` | oMLX | Both agentic suites; pass `--suite` explicitly |
+| `omlx-combined` | `modules/benchmark_agent_tools.py` | oMLX | Composite cases: quality+security+logic+tools in one task |
+| `omlx-agent` | `modules/benchmark_agent_tools.py` | oMLX | Agentic suites; pass `--suite` explicitly |
 | `galileo-tools` | `modules/benchmark_agent_tools.py` | Galileo | Tool-use suite on router-hosted models |
 | `galileo-logic` | `modules/benchmark_agent_tools.py` | Galileo | Logic suite on router-hosted models |
-| `galileo-agent` | `modules/benchmark_agent_tools.py` | Galileo | Both agentic suites on Galileo; pass `--suite` explicitly |
+| `galileo-combined` | `modules/benchmark_agent_tools.py` | Galileo | Composite cases on router-hosted models |
+| `galileo-agent` | `modules/benchmark_agent_tools.py` | Galileo | Agentic suites on Galileo; pass `--suite` explicitly |
 | `galileo-pipeline` | `modules/benchmark_opencode_agents.py` | Galileo via OpenCode | Full agentic pipeline: review quality + MCP tool compliance (Serena + Headroom) |
 | `omlx-pipeline` | `modules/benchmark_opencode_agents.py` | oMLX via OpenCode | Same agentic pipeline against the `omlx` provider |
 | `galileo-math` | `modules/math_bench_galileo_reviews.py` | Galileo | 10 applied math problems, exact/numeric answer match |
@@ -233,9 +235,9 @@ OMLX_RETRY_FAILURES=1 python3 -m modules.benchmark_omlx_reviews --presets --judg
 OMLX_THINKING=0 python3 -m modules.benchmark_omlx_reviews --lang=cpp
 ```
 
-## `modules/benchmark_agent_tools.py` (omlx-tools / omlx-logic / galileo-tools / galileo-logic)
+## `modules/benchmark_agent_tools.py` (omlx-tools / omlx-logic / omlx-combined / galileo-tools / galileo-logic / galileo-combined)
 
-Two deterministic suites behind `--suite`, on either backend via
+Deterministic suites behind `--suite`, on either backend via
 `--backend {omlx,galileo}` (default `omlx`):
 
 - **`tool-use`** (`test_definitions/tool_use.json`, spec
@@ -249,8 +251,14 @@ Two deterministic suites behind `--suite`, on either backend via
   simulation, intervention, self-reference, symbol manipulation, planning).
   Typed per-field grading (bool/number/enum/set/map) with partial credit;
   no judge, no tools.
-
-Both record `extracted_answer` and `answer_text` per case in the results
+- **`combined`** (`test_definitions/combined.json`) — composite cases:
+  each task exercises code-quality review, security analysis, logical
+  reasoning, and tool use simultaneously (deploy-failure diagnosis,
+  log prompt-injection, PR review, config audit, contradictory-docs
+  resolution, incident epistemics). Deterministic typed-field grading
+  plus a per-case `rubric` string carrying judge-facing criteria for
+  epistemic/meaning-level evaluation (join by `case_id`; the deterministic
+  grader ignores it).
 JSON (gitignored under `results/`); CSV output stays a flat metric sheet.
 Resume keys on `(model, case_id)`.
 
