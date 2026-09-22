@@ -147,11 +147,13 @@ PRESET_SAMPLING_KEYS: Final[dict[str, str]] = {
     "max_tokens": "max_tokens",
     "thinking-budget": "thinking_budget_tokens",
     "enable-thinking": "enable_thinking",
+    "reasoning-effort": "reasoning_effort",
 }
 INT_SAMPLING_KEYS: Final = frozenset(
     {"top_k", "max_tokens", "thinking_budget_tokens"}
 )
 BOOL_SAMPLING_KEYS: Final = frozenset({"enable_thinking"})
+RAW_SAMPLING_KEYS: Final = frozenset({"reasoning_effort"})
 NO_THINKING_MODELS: Final[frozenset[str]] = frozenset()
 NO_SCHEMA_MODELS: Final[frozenset[str]] = frozenset()
 def report_paths_for(language: str) -> tuple[Path, Path, Path, Path]:
@@ -1189,9 +1191,11 @@ def load_presets(path: Path) -> dict[str, dict[str, Any]]:
                 continue
             try:
                 if api_key in INT_SAMPLING_KEYS:
-                    parsed: bool | int | float = int(value)
+                    parsed: bool | int | float | str = int(value)
                 elif api_key in BOOL_SAMPLING_KEYS:
                     parsed = value.casefold() in {"1", "true", "yes", "on"}
+                elif api_key in RAW_SAMPLING_KEYS:
+                    parsed = value
                 else:
                     parsed = float(value)
             except ValueError:

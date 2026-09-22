@@ -233,12 +233,14 @@ class TestPresetParsing(unittest.TestCase):
             "top-k = 40\n"
             "thinking-budget = 8192\n"
             "enable-thinking = true\n"
+            "reasoning-effort = medium\n"
             "max-tokens = 4096\n"
         )
         presets = benchmark.load_presets(path)
         sampling = presets["coder-ornith:latest"]
         self.assertEqual(8192, sampling["thinking_budget_tokens"])
         self.assertIs(sampling["enable_thinking"], True)
+        self.assertEqual("medium", sampling["reasoning_effort"])
         self.assertEqual(4096, sampling["max_tokens"])
         self.assertEqual(40, sampling["top_k"])
         self.assertAlmostEqual(0.7, sampling["temperature"])

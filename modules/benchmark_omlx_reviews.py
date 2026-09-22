@@ -222,7 +222,7 @@ class ConfigurableJudgeClient(JudgeClient):
 
     def _judge(self, prompt: str) -> str:
         """Run one judge prompt with thinking disabled for the verdict."""
-        cache_key = f"{self._model}\n{prompt}"
+        cache_key = (self._model, prompt)
         if cache_key in self._cache:
             return self._cache[cache_key]
         payload = {
