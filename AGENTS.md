@@ -23,7 +23,7 @@ an equivalent justification.
 - `results/` contains current machine-generated benchmark artifacts grouped by benchmark.
 - `logs/` contains active operational logs.
 - `archives/` contains immutable historical run snapshots grouped by benchmark.
-- `reports/` contains human-readable benchmark analyses.
+- `reports/` contains human-readable benchmark analyses grouped by serving stack: `reports/omlx/` for oMLX runs, `reports/llama-cpp-linux/` for Galileo (llama.cpp) runs. `bin/report.py -o NAME.md` resolves bare filenames there automatically.
 - `docs/` contains infrastructure and deployment documentation.
 - `opencode-agent-suite/` contains the isolated OpenCode fixture workspace.
 

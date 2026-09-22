@@ -82,7 +82,9 @@ detected from the result shape. The draft contains only computed facts:
 ```bash
 bin/report.py results/galileo-review/x-results.json \
     --baseline results/galileo-review/old.json \
-    --title "Galileo review — coder preset" -o reports/GALILEO_REVIEW_X.md
+    --title "Galileo review — coder preset" -o GALILEO_REVIEW_X.md
+# bare filenames land under reports/<stack>/ automatically:
+#   omlx runs -> reports/omlx/   galileo runs -> reports/llama-cpp-linux/
 ```
 
 The generator never writes inference — fill the TODO sections by hand so the
@@ -444,7 +446,8 @@ test_definitions/   static review cases per language (<lang>.json)
 results/            current artifacts per benchmark (galileo-review/, omlx-review/, ...)
 logs/               operational logs
 archives/           immutable snapshots moved by *_RETRY_FAILURES=1
-reports/            human-readable analyses
+reports/            human-readable analyses, grouped by serving stack
+                    (omlx/, llama-cpp-linux/)
 docs/               infrastructure notes
 opencode-agent-suite/  agent fixture workspaces (cases/ tree per language)
 ```

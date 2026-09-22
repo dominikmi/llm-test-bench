@@ -299,6 +299,21 @@ def thinking_telemetry(run: RunMeta) -> list[ThinkingTelemetry]:
     return telemetry
 
 
+# reports/ is grouped by serving stack, not by benchmark name.
+REPORT_DIRS: dict[str, str] = {
+    "omlx": "omlx",
+    "galileo": "llama-cpp-linux",
+}
+
+
+def report_dir(run: RunMeta, source_path: Path) -> Path:
+    """reports/<stack>/ for a run — omlx runs vs llama.cpp-on-Linux runs."""
+    backend = str(
+        run.params.get("backend") or source_path.parent.name.split("-")[0]
+    )
+    return Path("reports") / REPORT_DIRS.get(backend, "")
+
+
 _SUITE_SOURCES: dict[str, str] = {
     "tool-use": "test_definitions/tool_use.json",
     "tools": "test_definitions/tool_use.json",
@@ -797,7 +812,15 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--title", default=None, help="Report title override")
     parser.add_argument(
-        "-o", "--out", type=Path, default=None, help="Output path (default: stdout)"
+        "-o",
+        "--out",
+        type=Path,
+        default=None,
+        help=(
+            "Output path — a bare filename resolves under "
+            "reports/<stack>/ (omlx/ or llama-cpp-linux/); "
+            "default: stdout"
+        ),
     )
     args = parser.parse_args(argv if argv is not None else sys.argv[1:])
 
@@ -808,8 +831,12 @@ def main(argv: list[str] | None = None) -> int:
         run, args.results, title, baseline=baseline, baseline_path=args.baseline
     )
     if args.out:
-        args.out.write_text(markdown, encoding="utf-8")
-        print(f"Report written: {args.out}")
+        out = args.out
+        if out.parent == Path("."):
+            out = report_dir(run, args.results) / out
+            out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(markdown, encoding="utf-8")
+        print(f"Report written: {out}")
     else:
         print(markdown)
     return 0

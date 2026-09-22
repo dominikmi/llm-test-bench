@@ -125,6 +125,34 @@ class TestCaseSpread(unittest.TestCase):
         self.assertEqual(("x",), spread.all_missed)
 
 
+class TestReportDir(unittest.TestCase):
+    """reports/ is grouped by serving stack."""
+
+    def _run(self, backend: str | None) -> report_builder.RunMeta:
+        params = {"backend": backend} if backend else {}
+        return report_builder.load_run(
+            _write({"benchmark_parameters": params, "results": [_review_result()]})
+        )
+
+    def test_omlx_and_galileo_dirs(self) -> None:
+        path = Path("results/omlx-review/x.json")
+        self.assertEqual(
+            Path("reports/omlx"),
+            report_builder.report_dir(self._run("omlx"), path),
+        )
+        self.assertEqual(
+            Path("reports/llama-cpp-linux"),
+            report_builder.report_dir(self._run("galileo"), path),
+        )
+
+    def test_backend_from_dir_name_when_unrecorded(self) -> None:
+        path = Path("results/galileo-review/x.json")
+        self.assertEqual(
+            Path("reports/llama-cpp-linux"),
+            report_builder.report_dir(self._run(None), path),
+        )
+
+
 class TestRender(unittest.TestCase):
     def test_markdown_contains_all_sections(self) -> None:
         results = [
