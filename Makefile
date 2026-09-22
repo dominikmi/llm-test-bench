@@ -39,7 +39,8 @@ check: install ## Offline unit tests + ruff + mypy (no live servers needed)
 		tests.test_benchmark_agent_tools \
 		tests.test_benchmark_galileo_reviews \
 		tests.test_benchmark_omlx_reviews \
-		tests.test_benchmark_opencode_agents
+		tests.test_benchmark_opencode_agents \
+		tests.test_report_builder
 	$(UV) run ruff check modules/ tests/ bin/
 	$(UV) run mypy modules tests bin --exclude 'math_tasks'
 

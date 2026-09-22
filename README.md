@@ -59,6 +59,35 @@ Utilities not exposed via `bench.py` (no `main(argv)` contract or one-off
 probes): `modules/judge_ab_test.py` (A/B two judge profiles on one subject),
 `tests/test_galileo_models.py` (live smoke test).
 
+### Report drafts: `bin/report.py`
+
+`bin/report.py <results.json>` builds a Markdown analysis draft for
+`reports/` from any benchmark results file — review runs (score/recall/
+precision/findings) and agent suites (quality/call-efficiency/waste) are
+detected from the result shape. The draft contains only computed facts:
+
+- the **effective injected regime** per model (from `model_parameters.sampling`,
+  not `benchmark_parameters` — that records runner defaults),
+- leaderboard + findings accounting + throughput,
+- **thinking-channel telemetry**: detects models that emit reasoning, flags
+  ones that did so on the runner-default budget (no explicit thinking keys),
+  and flags budgets saturated on every case,
+- per-case discrimination (best discriminators, near-saturated cases,
+  systematic misses every model failed — grading-contract suspects),
+- cost analysis (wall-clock spread, tokens per score point),
+- optional `--baseline other.json` diff table,
+- auto-generated caveats (sampling noise, preset drift, judge fallbacks)
+  plus a TODO marker where judgement belongs.
+
+```bash
+bin/report.py results/galileo-review/x-results.json \
+    --baseline results/galileo-review/old.json \
+    --title "Galileo review — coder preset" -o reports/GALILEO_REVIEW_X.md
+```
+
+The generator never writes inference — fill the TODO sections by hand so the
+report separates *observed facts* from *interpretation*.
+
 Every runner module also remains directly executable from the repo root —
 `python3 -m modules.benchmark_omlx_reviews ...` is equivalent to
 `bin/bench.py omlx-review ...` (minus the injected `--backend`/`--suite`
@@ -407,7 +436,7 @@ oMLX additionally `--judge-url`).
 ## Layout
 
 ```
-bin/                runnable entry points (bench.py orchestrator)
+bin/                runnable entry points (bench.py orchestrator, report.py draft builder)
 modules/            benchmark runners and shared support modules
 tests/              offline unit tests plus the live Galileo smoke test
 config/             model lists, presets (INI)

@@ -15,7 +15,7 @@ an equivalent justification.
 
 ## Layout
 
-- `bin/` contains runnable entry points: `bin/bench.py <bench> [runner args]` dispatches to runners by `<backend>-<what>` names: `omlx-review`, `galileo-review`, `omlx-tools`, `omlx-logic`, `omlx-agent`, `galileo-tools`, `galileo-logic`, `galileo-agent`, `galileo-pipeline`, `omlx-pipeline`, `galileo-math`, `omlx-math`. It injects `--backend`/`--suite` defaults unless the user passed those flags. Runner modules also run via `python3 -m modules.<name>` from the repo root.
+- `bin/` contains runnable entry points: `bin/bench.py <bench> [runner args]` dispatches to runners by `<backend>-<what>` names: `omlx-review`, `galileo-review`, `omlx-tools`, `omlx-logic`, `omlx-agent`, `galileo-tools`, `galileo-logic`, `galileo-agent`, `galileo-pipeline`, `omlx-pipeline`, `galileo-math`, `omlx-math`. It injects `--backend`/`--suite` defaults unless the user passed those flags. `bin/report.py <results.json>` builds a Markdown analysis draft (computed facts only — leaderboard, injected-regime table, thinking telemetry, per-case spread, caveats) for `reports/`; inference sections are left as TODOs. Runner modules also run via `python3 -m modules.<name>` from the repo root.
 - `modules/` is the Python package holding all benchmark runners and shared support modules. Intra-package imports are relative (`from .benchmark_paths import ...`).
 - `tests/` contains offline unit tests plus the live Galileo smoke test.
 - `config/` contains model lists, active presets, and preset snapshots.
@@ -39,7 +39,7 @@ Run static checks:
 
 ```bash
 ruff check modules/ tests/ bin/
-mypy modules/benchmark_paths.py modules/benchmark_galileo_reviews.py modules/benchmark_omlx_reviews.py modules/benchmark_agent_tools.py modules/benchmark_opencode_agents.py modules/math_bench_galileo_reviews.py modules/judge_ab_test.py modules/review_definitions.py tests/ bin/
+mypy modules/benchmark_paths.py modules/benchmark_galileo_reviews.py modules/benchmark_omlx_reviews.py modules/benchmark_agent_tools.py modules/benchmark_opencode_agents.py modules/math_bench_galileo_reviews.py modules/judge_ab_test.py modules/report_builder.py modules/review_definitions.py tests/ bin/
 ```
 
 `tests/test_galileo_models.py` is a live Galileo integration test and is intentionally excluded from the offline unit-test command. `modules/math_tasks.py` is a stdlib demo script and stays outside the mypy gate.
