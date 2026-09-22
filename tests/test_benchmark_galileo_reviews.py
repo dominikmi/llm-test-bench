@@ -215,5 +215,58 @@ class TestResultPersistence(unittest.TestCase):
             self.assertFalse(output_path.with_suffix(".json.tmp").exists())
 
 
+class TestPresetParsing(unittest.TestCase):
+    """Verify client-side preset keys parse into request payload fields."""
+
+    def _write_presets(self, body: str) -> Path:
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        path = Path(directory.name) / "presets.ini"
+        path.write_text(body, encoding="utf-8")
+        return path
+
+    def test_thinking_keys_parse_with_typed_values(self) -> None:
+        """thinking-budget and enable-thinking survive INI parsing typed."""
+        path = self._write_presets(
+            "[coder-ornith:LATEST]\n"
+            "temp = 0.7\n"
+            "top-k = 40\n"
+            "thinking-budget = 8192\n"
+            "enable-thinking = true\n"
+            "max-tokens = 4096\n"
+        )
+        presets = benchmark.load_presets(path)
+        sampling = presets["coder-ornith:latest"]
+        self.assertEqual(8192, sampling["thinking_budget_tokens"])
+        self.assertIs(sampling["enable_thinking"], True)
+        self.assertEqual(4096, sampling["max_tokens"])
+        self.assertEqual(40, sampling["top_k"])
+        self.assertAlmostEqual(0.7, sampling["temperature"])
+
+    def test_enable_thinking_false_parses_as_bool(self) -> None:
+        """Boolean-off presets parse false instead of being dropped."""
+        path = self._write_presets(
+            "[coder-gemma4-26B-A4B-it:LATEST]\nenable-thinking = false\n"
+        )
+        presets = benchmark.load_presets(path)
+        self.assertIs(
+            presets["coder-gemma4-26b-a4b-it:latest"]["enable_thinking"], False
+        )
+
+    def test_math_runner_shares_the_typed_preset_map(self) -> None:
+        """The math runner accepts the same thinking keys on Galileo."""
+        path = self._write_presets(
+            "[coder-ornith:LATEST]\n"
+            "thinking-budget = 4096\n"
+            "enable-thinking = false\n"
+            "max-tokens = 2048\n"
+        )
+        presets = math_benchmark.load_presets(path)
+        sampling = presets["coder-ornith:latest"]
+        self.assertEqual(4096, sampling["thinking_budget_tokens"])
+        self.assertIs(sampling["enable_thinking"], False)
+        self.assertEqual(2048, sampling["max_tokens"])
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

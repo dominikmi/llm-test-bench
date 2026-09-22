@@ -145,7 +145,13 @@ PRESET_SAMPLING_KEYS: Final[dict[str, str]] = {
     "frequency-penalty": "frequency_penalty",
     "max-tokens": "max_tokens",
     "max_tokens": "max_tokens",
+    "thinking-budget": "thinking_budget_tokens",
+    "enable-thinking": "enable_thinking",
 }
+INT_SAMPLING_KEYS: Final = frozenset(
+    {"top_k", "max_tokens", "thinking_budget_tokens"}
+)
+BOOL_SAMPLING_KEYS: Final = frozenset({"enable_thinking"})
 NO_THINKING_MODELS: Final[frozenset[str]] = frozenset()
 NO_SCHEMA_MODELS: Final[frozenset[str]] = frozenset()
 def report_paths_for(language: str) -> tuple[Path, Path, Path, Path]:
@@ -539,7 +545,7 @@ class GalileoClient:
         """Submit one bounded review request and extract llama.cpp timing metrics."""
         prompt = build_review_prompt(case)
         disable_thinking = model in NO_THINKING_MODELS
-        payload = {
+        payload: dict[str, Any] = {
             "model": model,
             "messages": [{"role": "user", "content": prompt}],
             "temperature": 0,
@@ -584,6 +590,12 @@ class GalileoClient:
         sampling = self._presets.get(model.casefold(), {})
         if sampling:
             payload.update(sampling)
+        if "enable_thinking" in payload:
+            # Reconcile the pair: llama.cpp wants template flag and budget aligned.
+            thinking_on = bool(payload.pop("enable_thinking"))
+            payload["chat_template_kwargs"]["enable_thinking"] = thinking_on
+            if not thinking_on:
+                payload["thinking_budget_tokens"] = 0
         LOGGER.info("Request started model=%s case=%s", model, case.case_id)
         started = time.perf_counter()
         response = self._request_with_retry("POST", "/chat/completions", payload)
@@ -1157,9 +1169,12 @@ def load_presets(path: Path) -> dict[str, dict[str, Any]]:
             if not value:
                 continue
             try:
-                sampling[api_key] = (
-                    int(value) if api_key in {"top_k", "max_tokens"} else float(value)
-                )
+                if api_key in INT_SAMPLING_KEYS:
+                    parsed: bool | int | float = int(value)
+                elif api_key in BOOL_SAMPLING_KEYS:
+                    parsed = value.casefold() in {"1", "true", "yes", "on"}
+                else:
+                    parsed = float(value)
             except ValueError:
                 LOGGER.warning(
                     "Invalid %s value %r in preset [%s]; ignoring",
@@ -1167,6 +1182,8 @@ def load_presets(path: Path) -> dict[str, dict[str, Any]]:
                     value,
                     section,
                 )
+                continue
+            sampling[api_key] = parsed
         if sampling:
             presets[normalized] = sampling
     return presets

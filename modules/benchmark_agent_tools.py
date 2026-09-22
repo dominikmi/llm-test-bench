@@ -831,9 +831,11 @@ class ToolLoop:
         if sampling:
             payload.update(sampling)
             if "enable_thinking" in sampling:
-                payload["chat_template_kwargs"]["enable_thinking"] = bool(
-                    sampling["enable_thinking"]
-                )
+                thinking_on = bool(sampling["enable_thinking"])
+                payload.pop("enable_thinking")
+                payload["chat_template_kwargs"]["enable_thinking"] = thinking_on
+                if not thinking_on and BACKEND == "galileo":
+                    payload["thinking_budget_tokens"] = 0
         elif BACKEND == "omlx" and ":" in self._model:
             # oMLX "model:profile" aliases carry tuned server-side sampling.
             # Galileo ":TAG" aliases are router names — keep temperature.

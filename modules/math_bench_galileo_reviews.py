@@ -62,7 +62,15 @@ PRESET_SAMPLING_KEYS: Final[dict[str, str]] = {
     "repeat-penalty": "repeat_penalty",
     "presence-penalty": "presence_penalty",
     "frequency-penalty": "frequency_penalty",
+    "max-tokens": "max_tokens",
+    "max_tokens": "max_tokens",
+    "thinking-budget": "thinking_budget_tokens",
+    "enable-thinking": "enable_thinking",
 }
+INT_SAMPLING_KEYS: Final = frozenset(
+    {"top_k", "max_tokens", "thinking_budget_tokens"}
+)
+BOOL_SAMPLING_KEYS: Final = frozenset({"enable_thinking"})
 NO_THINKING_MODELS: frozenset[str] = frozenset()
 NO_SCHEMA_MODELS: frozenset[str] = frozenset()
 RESULTS_PATH = Path(
@@ -867,9 +875,12 @@ def load_presets(path: Path) -> dict[str, dict[str, Any]]:
             if not value:
                 continue
             try:
-                sampling[api_key] = (
-                    int(value) if api_key == "top_k" else float(value)
-                )
+                if api_key in INT_SAMPLING_KEYS:
+                    parsed: bool | int | float = int(value)
+                elif api_key in BOOL_SAMPLING_KEYS:
+                    parsed = value.casefold() in {"1", "true", "yes", "on"}
+                else:
+                    parsed = float(value)
             except ValueError:
                 LOGGER.warning(
                     "Invalid %s value %r in preset [%s]; ignoring",
@@ -877,6 +888,8 @@ def load_presets(path: Path) -> dict[str, dict[str, Any]]:
                     value,
                     section,
                 )
+                continue
+            sampling[api_key] = parsed
         if sampling:
             presets[normalized] = sampling
     return presets

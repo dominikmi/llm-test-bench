@@ -304,6 +304,7 @@ file; output to `results/judge/`.
 | `config/presets-omlx.ini` | oMLX request sampling for bare model IDs (original baseline) |
 | `config/presets-omlx-coder.ini` | Client-side "coder" profile: explicit per-request overrides replicating the as-tested config (uniform `thinking-budget=4096` where supported) |
 | `config/presets-omlx-agent.ini` | Client-side "agentic" profile: hotter sampling + larger thinking budgets, injected per-request to overrule server defaults |
+| `config/presets-galileo-agent.ini` | Client-side "agentic" profile for Galileo aliases: hotter sampling + `thinking-budget` (llama.cpp `thinking_budget_tokens`), injected per-request over router defaults |
 
 oMLX presets use request fields only (`temperature`, `top_p`, `top_k`,
 `min_p`, `repetition_penalty`, `enable_thinking`, `thinking_budget`,
@@ -329,9 +330,12 @@ aliases with different regimes — `coder-*` (temp 0.8), `critic-*` (0.2),
 sampling decision, not a model decision. When the benchmark is run with
 `--presets`, the *same file* is parsed client-side and its request-level keys
 (`temp`, `top-p`, `top-k`, `min-p`, `repeat-penalty`, `presence-penalty`,
-`max-tokens`) are sent as per-request overrides on top of the alias defaults.
-Server flags (`ctx-size`, `threads`, …) are parsed but **not** forwarded —
-they belong to router startup.
+`max-tokens`, `thinking-budget`, `enable-thinking`) are sent as per-request
+overrides on top of the alias defaults — `presets-galileo-agent.ini` uses this
+to give every alias a uniform agentic regime. `enable-thinking` presets are
+reconciled with `chat_template_kwargs.enable_thinking` and zero the
+`thinking_budget_tokens` field when off. Server flags (`ctx-size`, `threads`,
+…) are parsed but **not** forwarded — they belong to router startup.
 
 **oMLX: two sub-regimes.** `config/presets-omlx.ini` maps INI keys to
 `ChatCompletionRequest` fields (`temp`→`temperature`, `top-p`→`top_p`,
