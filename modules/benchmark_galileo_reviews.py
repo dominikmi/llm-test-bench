@@ -596,6 +596,19 @@ class GalileoClient:
             payload["chat_template_kwargs"]["enable_thinking"] = thinking_on
             if not thinking_on:
                 payload["thinking_budget_tokens"] = 0
+        if (
+            payload["chat_template_kwargs"]["enable_thinking"]
+            and payload["thinking_budget_tokens"] >= payload["max_tokens"]
+        ):
+            # n_predict bounds reasoning+answer together — an undersized cap
+            # starves the final content after thinking consumes the budget.
+            LOGGER.warning(
+                "thinking_budget_tokens=%s >= max_tokens=%s for %s: "
+                "the answer may be truncated to empty",
+                payload["thinking_budget_tokens"],
+                payload["max_tokens"],
+                model,
+            )
         LOGGER.info("Request started model=%s case=%s", model, case.case_id)
         started = time.perf_counter()
         response = self._request_with_retry("POST", "/chat/completions", payload)

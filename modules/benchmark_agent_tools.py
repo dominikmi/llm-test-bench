@@ -840,6 +840,21 @@ class ToolLoop:
             # oMLX "model:profile" aliases carry tuned server-side sampling.
             # Galileo ":TAG" aliases are router names — keep temperature.
             payload.pop("temperature")
+        if (
+            BACKEND == "galileo"
+            and payload["chat_template_kwargs"].get("enable_thinking")
+            and payload.get("thinking_budget_tokens", 0) >= payload["max_tokens"]
+        ):
+            # llama.cpp n_predict bounds reasoning+answer together — an
+            # undersized cap starves the final content after thinking
+            # consumes the budget. oMLX accounts thinking separately.
+            LOGGER.warning(
+                "thinking_budget_tokens=%s >= max_tokens=%s for %s: "
+                "the answer may be truncated to empty",
+                payload["thinking_budget_tokens"],
+                payload["max_tokens"],
+                self._model,
+            )
         response = self._client._request_with_retry(
             "POST", "/chat/completions", payload
         )

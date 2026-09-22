@@ -401,17 +401,31 @@ class GalileoClient:
             # oMLX "model:profile" aliases carry tuned server-side sampling.
             # Galileo ":TAG" aliases are router names — keep temperature.
             payload.pop("temperature")
+        budget_key = (
+            "thinking_budget_tokens" if BACKEND == "galileo" else "thinking_budget"
+        )
         if "enable_thinking" in payload:
             thinking_on = bool(payload.pop("enable_thinking"))
             payload["chat_template_kwargs"]["enable_thinking"] = thinking_on
             if not thinking_on:
-                budget_key = (
-                    "thinking_budget_tokens"
-                    if BACKEND == "galileo"
-                    else "thinking_budget"
-                )
                 payload[budget_key] = 0
         thinking_on = bool(payload["chat_template_kwargs"]["enable_thinking"])
+        if (
+            BACKEND == "galileo"
+            and thinking_on
+            and payload.get(budget_key, 0) >= payload["max_tokens"]
+        ):
+            # llama.cpp n_predict bounds reasoning+answer together — an
+            # undersized cap starves the final content after thinking
+            # consumes the budget. oMLX accounts thinking separately.
+            LOGGER.warning(
+                "%s=%s >= max_tokens=%s for %s: "
+                "the answer may be truncated to empty",
+                budget_key,
+                payload.get(budget_key),
+                payload["max_tokens"],
+                model,
+            )
         # oMLX emits an empty array when thinking mode meets a response_format
         # grammar, so thinking runs must parse the answer from plain text.
         use_schema = model not in NO_SCHEMA_MODELS and not (
