@@ -192,7 +192,9 @@ def load_models(path: Path | None = None) -> tuple[str, ...]:
     return tuple(data)
 
 
-MODELS: Final[tuple[str, ...]] = load_models()
+MODELS: Final[tuple[str, ...]] = load_models(
+    Path(path) if (path := os.getenv("GALILEO_MODELS")) else None
+)
 
 @dataclass(frozen=True, slots=True)
 class ResponseMetrics:

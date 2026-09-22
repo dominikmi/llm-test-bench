@@ -105,7 +105,9 @@ def load_models(path: Path | None = None) -> tuple[str, ...]:
     return tuple(data)
 
 
-MODELS: tuple[str, ...] = load_models()
+MODELS: tuple[str, ...] = load_models(
+    Path(path) if (path := os.getenv("GALILEO_MODELS")) else None
+)
 
 
 def resolve_backend(backend: str) -> None:
