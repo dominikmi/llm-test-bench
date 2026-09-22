@@ -233,7 +233,10 @@ class ConfigurableJudgeClient(JudgeClient):
             ],
             "temperature": 0.0,
             "max_tokens": galileo.JUDGE_MAX_TOKENS,
+            # Both budget spellings — each backend ignores the other's key
+            # (oMLX: thinking_budget, llama.cpp: thinking_budget_tokens).
             "thinking_budget": 0,
+            "thinking_budget_tokens": 0,
             "stream": False,
             "response_format": galileo.JUDGE_SCHEMA,
             "chat_template_kwargs": {"enable_thinking": False},

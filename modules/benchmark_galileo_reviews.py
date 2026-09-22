@@ -749,7 +749,7 @@ class JudgeClient:
 
     def __init__(self, model: str) -> None:
         self._model = model
-        self._cache: dict[str, Any] = {}
+        self._cache: dict[tuple[str, str], Any] = {}
 
     def _request(self, payload: dict[str, Any]) -> dict[str, Any]:
         """Send one judge request and return the JSON response."""
@@ -801,7 +801,7 @@ class JudgeClient:
 
     def _judge(self, prompt: str) -> str:
         """Run a single judge prompt and return one of yes/no/partial."""
-        cache_key = f"{hash(prompt)}:{self._model}"
+        cache_key = (prompt, self._model)
         if cache_key in self._cache:
             return self._cache[cache_key]
         payload = {
@@ -814,6 +814,12 @@ class JudgeClient:
             "max_tokens": JUDGE_MAX_TOKENS,
             "stream": False,
             "response_format": JUDGE_SCHEMA,
+            # Judge verdicts must not burn the cap on reasoning. Both budget
+            # spellings are sent — each backend ignores the other's key
+            # (oMLX: thinking_budget, llama.cpp: thinking_budget_tokens).
+            "thinking_budget": 0,
+            "thinking_budget_tokens": 0,
+            "chat_template_kwargs": {"enable_thinking": False},
         }
         try:
             response = self._request(payload)
