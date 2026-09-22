@@ -52,7 +52,7 @@ class CombinedSuiteTests(unittest.TestCase):
 
     def test_suite_loads(self) -> None:
         self.assertEqual(self.combined.suite, "combined")
-        self.assertGreaterEqual(len(self.combined.cases), 5)
+        self.assertEqual(len(self.combined.cases), 12)
         self.assertGreaterEqual(len(self.combined.tools), 5)
 
     def test_every_case_has_rubric_and_multi_dim_fields(self) -> None:
