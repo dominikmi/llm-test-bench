@@ -3,11 +3,13 @@ dispatch, schema validation, call classification, and answer grading."""
 
 from __future__ import annotations
 
+import io
 import json
 import tempfile
 import unittest
 from pathlib import Path
 from typing import ClassVar
+from unittest.mock import patch
 
 from modules import benchmark_agent_tools as tools
 
@@ -69,6 +71,105 @@ class CombinedSuiteTests(unittest.TestCase):
                 set(case.grading.forbidden_tools).issubset(available),
                 case.case_id,
             )
+
+    def test_every_case_exercises_a_quality_defect(self) -> None:
+        quality_markers = {
+            "quality_issue_present",
+            "unsafe_comparison",
+            "retry_risk_present",
+            "data_loss_risk",
+            "real_issue_present",
+            "obfuscated_exec_flagged",
+            "least_privilege_violated",
+            "race_possible",
+            "policy_violation",
+        }
+        for case in self.combined.cases:
+            fields = case.grading.answer.fields
+            self.assertTrue(
+                quality_markers & set(fields),
+                f"{case.case_id} has no defect-oriented field",
+            )
+
+
+class RubricJudgeTests(unittest.TestCase):
+    """Judge prompt construction and verdict parsing without a network."""
+
+    combined: ClassVar = tools.load_suite(
+        tools.TEST_DEFINITIONS_DIR / "combined.json"
+    )
+
+    def _result(self) -> tools.ToolCaseResult:
+        return tools.ToolCaseResult(
+            model="m",
+            case_id="combined-01-deploy-failure",
+            category="composite-diagnosis",
+            quality=0.85,
+            call_efficiency=1.0,
+            turn_efficiency=1.0,
+            waste_ratio=0.0,
+            calls=3,
+            turns=3,
+            invalid_calls=0,
+            identical_retries=0,
+            off_plan_calls=0,
+            forbidden_hits=0,
+            json_answer=True,
+            terminated="answer",
+            elapsed_seconds=1.0,
+            prompt_tokens=10,
+            completion_tokens=20,
+            prompt_tokens_per_second=1.0,
+            output_tokens_per_second=2.0,
+            trace=({
+                "turn": 1,
+                "tool": "query_metrics",
+                "arguments": {"service": "checkout"},
+                "classification": "required",
+                "response_excerpt": "{}",
+            },),
+            answer_text='{"root_cause": "eval on template"}',
+            extracted_answer={"root_cause": "eval on template"},
+        )
+
+    def test_prompt_contains_task_rubric_trace_and_answer(self) -> None:
+        case = self.combined.cases[0]
+        prompt = tools._judge_prompt(case, self._result())
+        self.assertIn(case.task, prompt)
+        self.assertIn(case.rubric, prompt)
+        self.assertIn("query_metrics", prompt)
+        self.assertIn("eval on template", prompt)
+
+    def test_score_parses_verdict(self) -> None:
+        verdict = json.dumps({
+            "choices": [{
+                "message": {
+                    "content": json.dumps({
+                        "score": 80,
+                        "rubric_satisfied": [1, 2, 3],
+                        "notes": "mostly correct",
+                    })
+                }
+            }]
+        }).encode()
+        judge = tools.RubricJudge("judge", "http://judge/v1", "k", 10.0)
+        with patch(
+            "modules.benchmark_agent_tools.urllib.request.urlopen",
+            return_value=io.BytesIO(verdict),
+        ):
+            score, notes = judge.score(self.combined.cases[0], self._result())
+        self.assertEqual(score, 80.0)
+        self.assertEqual(notes, "mostly correct")
+
+    def test_score_failure_returns_none(self) -> None:
+        judge = tools.RubricJudge("judge", "http://judge/v1", "k", 10.0)
+        with patch(
+            "modules.benchmark_agent_tools.urllib.request.urlopen",
+            side_effect=OSError("down"),
+        ):
+            score, notes = judge.score(self.combined.cases[0], self._result())
+        self.assertIsNone(score)
+        self.assertIn("judge_error", notes)
 
 
 class ArgumentValidationTests(unittest.TestCase):

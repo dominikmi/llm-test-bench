@@ -251,14 +251,16 @@ Deterministic suites behind `--suite`, on either backend via
   simulation, intervention, self-reference, symbol manipulation, planning).
   Typed per-field grading (bool/number/enum/set/map) with partial credit;
   no judge, no tools.
-- **`combined`** (`test_definitions/combined.json`) — composite cases:
+- **`combined`** (`test_definitions/combined.json`) — 12 composite cases:
   each task exercises code-quality review, security analysis, logical
   reasoning, and tool use simultaneously (deploy-failure diagnosis,
-  log prompt-injection, PR review, config audit, contradictory-docs
-  resolution, incident epistemics). Deterministic typed-field grading
-  plus a per-case `rubric` string carrying judge-facing criteria for
-  epistemic/meaning-level evaluation (join by `case_id`; the deterministic
-  grader ignores it).
+  auth bypass, log prompt-injection, PR review, config audit, migration
+  gate, cache IDOR, race condition, backdoor PR, contradictory-docs
+  resolution, incident epistemics, false-premise verification).
+  Deterministic typed-field grading stays primary; each case carries a
+  `rubric` string with judge-facing epistemic/meaning criteria, scored
+  on demand via `--judge` (`{BACKEND}_JUDGE_*` env vars) and recorded
+  separately as `judge_score`/`judge_notes` per case.
 JSON (gitignored under `results/`); CSV output stays a flat metric sheet.
 Resume keys on `(model, case_id)`.
 
