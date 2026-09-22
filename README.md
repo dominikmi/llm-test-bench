@@ -305,7 +305,7 @@ file; output to `results/judge/`.
 | `config/presets-omlx-coder.ini` | Client-side "coder" profile: explicit per-request overrides replicating the as-tested config (uniform `thinking-budget=4096` where supported) |
 | `config/presets-omlx-agent.ini` | Client-side "agentic" profile: hotter sampling + larger thinking budgets, injected per-request to overrule server defaults |
 | `config/presets-galileo-agent.ini` | Client-side "agentic" profile for Galileo aliases: hotter sampling + `thinking-budget` (llama.cpp `thinking_budget_tokens`), injected per-request over router defaults |
-| `config/presets-galileo-coder.ini` | Client-side "coder" profile for Galileo: replicates each alias's server-side sampling as request overrides + uniform `thinking-budget=4096` where supported |
+| `config/presets-galileo-coder.ini` | Client-side "coder" profile for Galileo: uniform decoding regime (temp 0.6/top-k 20, `thinking-budget=4096` where supported) injected per-request; Gemma keeps its tuned sampling as the documented exception |
 
 oMLX presets use request fields only (`temperature`, `top_p`, `top_k`,
 `min_p`, `repetition_penalty`, `enable_thinking`, `thinking_budget`,
