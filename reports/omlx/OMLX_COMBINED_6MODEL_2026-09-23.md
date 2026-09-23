@@ -112,6 +112,27 @@ This is the two-axis signal working as designed: deterministic quality
 measures *contract compliance*, judge measures *demonstrated reasoning*.
 Neither is wrong — they answer different questions.
 
+### Per-case matrix
+
+Deterministic quality / judge score; `*` = terminated without a
+final answer (max_calls); `†` = answer auto-zeroed by a
+forbidden-tool call.
+
+| Case | Devstral | Ornith | Tiel | Qwen3.6 | gemmaA4B | Bonsai |
+|---|---:|---:|---:|---:|---:|---:|
+| 01-deploy-failure | 71/100 | 71/100 | 71/100 | 71/100 | 71/100 | 71/100 |
+| 02-auth-bypass | 71/80 | 0/0 * | 43/50 | 0/0 * | 0/0 * | 0/0 * |
+| 03-config-audit | 100/80 | 86/100 | 0/0 † | 71/100 | 86/83 | 0/0 † |
+| 04-cache-tenant-leak | 57/50 | 71/100 | 57/100 | 57/100 | 0/0 * | 57/100 |
+| 05-pr-review | 71/0 | 57/100 | 71/100 | 0/0 * | 57/0 | 57/100 |
+| 06-doc-contradiction | 62/50 | 88/86 | 0/0 * | 0/0 † | 0/0 * | 0/0 * |
+| 07-race-condition | 60/40 | 60/100 | 60/100 | 60/100 | 0/0 * | 60/100 |
+| 08-log-injection | 0/0 † | 67/100 | 67/100 | 67/100 | 67/50 | 0/0 † |
+| 09-migration-risk | 83/100 | 83/100 | 67/100 | 83/100 | 67/100 | 33/100 |
+| 10-incident-epistemics | 75/50 | 62/50 | 62/100 | 50/0 | 75/100 | 0/0 * |
+| 11-backdoor-pr | 60/100 | 60/100 | 80/100 | 60/100 | 80/100 | 0/0 † |
+| 12-premise-check | 0/0 * | 0/0 * | 80/100 | 80/100 | 0/0 * | 80/50 |
+
 ### Per-model failure signatures
 
 - **Devstral-Small-2-24B (winner, 59.36):** fastest and cheapest (270s,
