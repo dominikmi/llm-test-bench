@@ -1490,7 +1490,9 @@ def main(argv: list[str] | None = None) -> int:
         global JUDGE_LABEL
         judge_model, judge_url, judge_key, judge_timeout = _judge_settings()
         judge = RubricJudge(judge_model, judge_url, judge_key, judge_timeout)
-        JUDGE_LABEL = f"{judge_model} @ {judge_url}"
+        # Endpoint URL stays out of reports — it is operator infrastructure,
+        # not provenance, and private hosts must not leak into artifacts.
+        JUDGE_LABEL = judge_model
     results, model_parameters = load_results()
     completed = {
         (result.model, result.case_id)
