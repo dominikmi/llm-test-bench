@@ -139,6 +139,18 @@ class RubricJudgeTests(unittest.TestCase):
         self.assertIn(case.rubric, prompt)
         self.assertIn("query_metrics", prompt)
         self.assertIn("eval on template", prompt)
+        self.assertIn("termination=answer", prompt)
+        self.assertIn("<reference_answer>", prompt)
+        self.assertIn("SCORING RULES", prompt)
+
+    def test_prompt_marks_no_answer_as_hard_fail(self) -> None:
+        result = self._result()
+        result.terminated = "max_calls"
+        result.extracted_answer = None
+        result.answer_text = ""
+        prompt = tools._judge_prompt(self.combined.cases[0], result)
+        self.assertIn("termination=max_calls", prompt)
+        self.assertIn('termination is not "answer"', prompt)
 
     def test_score_parses_verdict(self) -> None:
         verdict = json.dumps({

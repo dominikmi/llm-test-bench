@@ -105,7 +105,9 @@ PRESETS_PATH: Final = os.getenv("OMLX_PRESETS", "")
 MODELS_PATH: Final = Path(
     os.getenv("OMLX_MODELS", str(CONFIG_DIR / "models-omlx.json"))
 )
-JUDGE_MODEL: Final = os.getenv("OMLX_JUDGE_MODEL", "critic-ornith:LATEST")
+JUDGE_MODEL: Final = os.getenv(
+    "OMLX_JUDGE_MODEL", "critic-gemma4-26B-A4B-it:LATEST"
+)
 JUDGE_BASE_URL: Final = os.getenv(
     "OMLX_JUDGE_BASE_URL", "http://127.0.0.1:8080/v1"
 ).rstrip("/")
