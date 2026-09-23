@@ -260,7 +260,11 @@ Deterministic suites behind `--suite`, on either backend via
   Deterministic typed-field grading stays primary; each case carries a
   `rubric` string with judge-facing epistemic/meaning criteria, scored
   on demand via `--judge` (`{BACKEND}_JUDGE_*` env vars) and recorded
-  separately as `judge_score`/`judge_notes` per case.
+  separately as `judge_score`/`judge_notes` per case. The judge runs as
+  a post-pass over persisted results, so a slow or unreachable judge
+  cannot stall benchmark data collection; `--judge-only` re-scores an
+  existing results file (e.g. an archived or interrupted run) without
+  touching the benchmark server.
 JSON (gitignored under `results/`); CSV output stays a flat metric sheet.
 Resume keys on `(model, case_id)`.
 

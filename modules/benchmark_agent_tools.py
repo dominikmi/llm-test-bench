@@ -1384,9 +1384,17 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--judge",
         action="store_true",
-        help="Additionally score rubric-carrying cases with an external "
-        "judge model ({BACKEND}_JUDGE_* env vars); deterministic grading "
-        "remains primary",
+        help="After the benchmark completes, score rubric-carrying cases "
+        "with an external judge model ({BACKEND}_JUDGE_* env vars). "
+        "Runs as a separate post-pass over persisted results so a slow "
+        "or hung judge never stalls data collection",
+    )
+    parser.add_argument(
+        "--judge-only",
+        action="store_true",
+        help="Skip the benchmark loop entirely; judge the existing "
+        "results file ({BACKEND}_BENCH_RESULTS). Use to judge an "
+        "archived or interrupted run offline",
     )
     args = parser.parse_args(argv if argv is not None else sys.argv[1:])
     resolve_backend(args.backend)
@@ -1430,7 +1438,7 @@ def main(argv: list[str] | None = None) -> int:
         LOGGER.info("Pre-retry reports archived at %s", archive_directory.resolve())
     client = _backend_client(presets)
     judge: RubricJudge | None = None
-    if args.judge:
+    if args.judge or args.judge_only:
         global JUDGE_LABEL
         judge_model, judge_url, judge_key, judge_timeout = _judge_settings()
         judge = RubricJudge(judge_model, judge_url, judge_key, judge_timeout)
@@ -1441,7 +1449,9 @@ def main(argv: list[str] | None = None) -> int:
         for result in results
         if not (RETRY_FAILURES and result.error is not None)
     }
-    if START_MODEL:
+    if args.judge_only:
+        active_models: tuple[str, ...] = ()
+    elif START_MODEL:
         if START_MODEL not in MODELS:
             LOGGER.error(
                 "%s_START_MODEL is not configured: %s",
@@ -1452,25 +1462,27 @@ def main(argv: list[str] | None = None) -> int:
         active_models = MODELS[MODELS.index(START_MODEL) :]
     else:
         active_models = MODELS
-    LOGGER.info(
-        "Benchmark start endpoint=%s suite=%s models=%d cases=%d "
-        "resumed=%d timeout=%.0fs",
-        _backend_base_url(),
-        suite_name,
-        len(active_models),
-        len(suite_cases),
-        len(results),
-        _backend_timeout(),
-    )
-    try:
-        advertised_models = client.models()
-    except (BenchmarkRequestError, TypeError) as error:
-        LOGGER.error("Cannot list %s models: %s", BACKEND, error)
-        return 1
-    missing = set(MODELS) - set(advertised_models)
-    if missing:
-        LOGGER.error("Missing model aliases: %s", ", ".join(sorted(missing)))
-        return 1
+    advertised_models: dict[str, Any] = {}
+    if not args.judge_only:
+        LOGGER.info(
+            "Benchmark start endpoint=%s suite=%s models=%d cases=%d "
+            "resumed=%d timeout=%.0fs",
+            _backend_base_url(),
+            suite_name,
+            len(active_models),
+            len(suite_cases),
+            len(results),
+            _backend_timeout(),
+        )
+        try:
+            advertised_models = client.models()
+        except (BenchmarkRequestError, TypeError) as error:
+            LOGGER.error("Cannot list %s models: %s", BACKEND, error)
+            return 1
+        missing = set(MODELS) - set(advertised_models)
+        if missing:
+            LOGGER.error("Missing model aliases: %s", ", ".join(sorted(missing)))
+            return 1
     for model_index, model in enumerate(active_models, start=1):
         model_parameters.setdefault(model, {"api_model": advertised_models[model]})
         if model.casefold() in presets:
@@ -1500,19 +1512,14 @@ def main(argv: list[str] | None = None) -> int:
                 if not loaded_once and load_seconds:
                     model_parameters[model]["model_load_seconds"] = load_seconds
                     loaded_once = True
-                if judge is not None and case.rubric and result.error is None:
-                    result.judge_score, result.judge_notes = judge.score(
-                        case, result
-                    )
                 LOGGER.info(
                     "Case scored model=%s case=%s progress=%d/%d quality=%.2f "
-                    "judge=%s calls=%d turns=%d waste=%.2f terminated=%s",
+                    "calls=%d turns=%d waste=%.2f terminated=%s",
                     model,
                     case.case_id,
                     case_index,
                     len(suite_cases),
                     result.quality,
-                    result.judge_score,
                     result.calls,
                     result.turns,
                     result.waste_ratio,
@@ -1556,6 +1563,30 @@ def main(argv: list[str] | None = None) -> int:
                 results, model_parameters, presets_path, suite_name,
                 len(suite_cases),
             )
+    if judge is not None:
+        cases_by_id = {case.case_id: case for case in suite_cases}
+        judged = 0
+        for result in results:
+            if result.judge_score is not None or result.error is not None:
+                continue
+            judge_case = cases_by_id.get(result.case_id)
+            if judge_case is None or not judge_case.rubric:
+                continue
+            result.judge_score, result.judge_notes = judge.score(
+                judge_case, result
+            )
+            judged += 1
+            LOGGER.info(
+                "Judged model=%s case=%s score=%s",
+                result.model,
+                result.case_id,
+                result.judge_score,
+            )
+            save_reports(
+                results, model_parameters, presets_path, suite_name,
+                len(suite_cases),
+            )
+        LOGGER.info("Judge pass complete: %d case(s) scored", judged)
     print_summary(results)
     LOGGER.info("JSON report: %s", RESULTS_PATH.resolve())
     LOGGER.info("CSV report: %s", CSV_PATH.resolve())
